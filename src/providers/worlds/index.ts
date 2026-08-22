@@ -1,8 +1,8 @@
 import { mkdir, rm } from "node:fs/promises"
 import { join } from "node:path"
 import { createClient } from "@libsql/client"
-import type { SdkInterface } from "@worlds/sdk"
-import { createLibsqlSdk } from "@worlds/libsql"
+import type { WorldsSdkInterface } from "@worlds/sdk"
+import { createLibsqlWorldsSdk } from "@worlds/libsql"
 import type {
   Provider,
   ProviderConfig,
@@ -39,7 +39,7 @@ export class WorldsProvider implements Provider {
     indexing: 2,
   }
 
-  private clients = new Map<string, SdkInterface>()
+  private clients = new Map<string, WorldsSdkInterface>()
   private documentIds = new Map<string, string[]>()
   private baseDir = join(process.cwd(), "data", "providers", "worlds")
   private apiKey = ""
@@ -53,11 +53,11 @@ export class WorldsProvider implements Provider {
   }
 
   /** Exposed for agent tool-calling scripts that need direct SPARQL access. */
-  async getClientForContainer(containerTag: string): Promise<SdkInterface> {
+  async getClientForContainer(containerTag: string): Promise<WorldsSdkInterface> {
     return this.getClient(containerTag)
   }
 
-  private async getClient(containerTag: string): Promise<SdkInterface> {
+  private async getClient(containerTag: string): Promise<WorldsSdkInterface> {
     const existing = this.clients.get(containerTag)
     if (existing) return existing
 
@@ -105,12 +105,12 @@ export class WorldsProvider implements Provider {
         )
       : undefined
 
-    // createLibsqlSdk wires the in-house WazooSparqlEngine over the
+    // createLibsqlWorldsSdk wires the in-house WazooSparqlEngine over the
     // hexastore-backed LibsqlStore automatically (the Comunica/traqula
     // closure silently broke every query in #23; the Wazoo engine is
     // W3C-gated 345/345 SPARQL 1.1, 249/249 SPARQL 1.2, 41/41 RDF 1.2
     // triple terms — see #25).
-    const client = await createLibsqlSdk({
+    const client = await createLibsqlWorldsSdk({
       client: libsqlClient,
       embeddingService: cachedEmbeddingService,
       vectorDimensions: embeddingService ? 768 : undefined,
@@ -271,7 +271,7 @@ export class WorldsProvider implements Provider {
   }
 }
 
-type SearchResponse = Awaited<ReturnType<SdkInterface["search"]>>
+type SearchResponse = Awaited<ReturnType<WorldsSdkInterface["search"]>>
 type SearchResult = NonNullable<SearchResponse["results"]>[number]
 
 interface EnrichedSearchResult {
@@ -292,7 +292,7 @@ interface EnrichedSearchResult {
  * search result via a single batched SPARQL SELECT query.
  */
 async function enrichSearchResults(
-  client: SdkInterface,
+  client: WorldsSdkInterface,
   results: SearchResult[]
 ): Promise<EnrichedSearchResult[]> {
   const base: EnrichedSearchResult[] = results.map((r) => ({
@@ -490,7 +490,7 @@ function parseFactBindings(response: unknown): FactClaimResult[] {
 }
 
 async function runFactClaimSparql(
-  client: SdkInterface,
+  client: WorldsSdkInterface,
   textClause: string,
   entityClause: string,
   limit: number
@@ -531,7 +531,7 @@ async function runFactClaimSparql(
  * subject/action/object/claimText, AND-first on keywords for precision,
  * OR fallback for recall. LIMIT 8 for latency.
  */
-async function queryFactClaims(client: SdkInterface, query: string): Promise<FactClaimResult[]> {
+async function queryFactClaims(client: WorldsSdkInterface, query: string): Promise<FactClaimResult[]> {
   try {
     const terms = extractContentTerms(query)
     const entities = extractQueryEntities(query)
@@ -564,7 +564,7 @@ async function queryFactClaims(client: SdkInterface, query: string): Promise<Fac
   }
 }
 
-async function runSearch(client: SdkInterface, query: string): Promise<SearchResult[]> {
+async function runSearch(client: WorldsSdkInterface, query: string): Promise<SearchResult[]> {
   const response = await client.search({ query })
   return response.results ?? []
 }
@@ -576,7 +576,7 @@ async function runSearch(client: SdkInterface, query: string): Promise<SearchRes
  * With embeddings active the primary hybrid search handles most queries
  * directly, but the fallback still catches degraded keyword-only mode.
  */
-async function searchWithFallback(client: SdkInterface, query: string): Promise<SearchResult[]> {
+async function searchWithFallback(client: WorldsSdkInterface, query: string): Promise<SearchResult[]> {
   const results = await runSearch(client, query)
   if (results.length > 0) {
     logger.debug(`Worlds search: "${query.slice(0, 50)}…" → ${results.length} results`)

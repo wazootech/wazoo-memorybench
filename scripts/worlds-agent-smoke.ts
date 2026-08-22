@@ -29,7 +29,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google"
 import { createOpenAI } from "@ai-sdk/openai"
 import { generateText, tool, stepCountIs } from "ai"
 import { z } from "zod"
-import type { SdkInterface } from "@worlds/sdk"
+import type { WorldsSdkInterface } from "@worlds/sdk"
 import { LoCoMoBenchmark } from "../src/benchmarks/locomo"
 import { WorldsProvider } from "../src/providers/worlds"
 import { config, getJudgeConfig } from "../src/utils/config"
@@ -208,7 +208,7 @@ async function checkBilling(modelAlias: string): Promise<void> {
 }
 
 function buildPlainTools(
-  getClient: () => Promise<SdkInterface>,
+  getClient: () => Promise<WorldsSdkInterface>,
   provider: WorldsProvider,
   containerTag: string,
   toolsMode: ToolsMode,
@@ -449,7 +449,7 @@ async function runAgentForQuestion(opts: {
   modelAlias: string
   judge: DeepSeekJudge | null
   provider: WorldsProvider
-  getClient: () => Promise<SdkInterface>
+  getClient: () => Promise<WorldsSdkInterface>
   questionId: string
   question: string
   questionType: string
