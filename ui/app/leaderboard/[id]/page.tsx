@@ -1,11 +1,11 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { Highlight, themes } from "prism-react-renderer";
-import { getLeaderboardEntry, type LeaderboardEntry } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react"
+import Link from "next/link"
+import { useParams } from "next/navigation"
+import { Highlight, themes } from "prism-react-renderer"
+import { getLeaderboardEntry, type LeaderboardEntry } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import {
   AccuracyByType,
   EvaluationList,
@@ -13,46 +13,46 @@ import {
   LatencyTable,
   RetrievalMetrics,
   StatsGrid,
-} from "@/components/benchmark-results";
+} from "@/components/benchmark-results"
 
-type Tab = "overview" | "results" | "code";
+type Tab = "overview" | "results" | "code"
 
 export default function LeaderboardEntryPage() {
-  const params = useParams();
-  const id = parseInt(params.id as string);
+  const params = useParams()
+  const id = parseInt(params.id as string)
 
-  const [entry, setEntry] = useState<LeaderboardEntry | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const [activeCodeFile, setActiveCodeFile] = useState<string>("index.ts");
+  const [entry, setEntry] = useState<LeaderboardEntry | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<Tab>("overview")
+  const [activeCodeFile, setActiveCodeFile] = useState<string>("index.ts")
 
   useEffect(() => {
-    loadEntry();
-  }, [id]);
+    loadEntry()
+  }, [id])
 
   async function loadEntry() {
     try {
-      setLoading(true);
-      const data = await getLeaderboardEntry(id);
-      setEntry(data);
-      setError(null);
+      setLoading(true)
+      const data = await getLeaderboardEntry(id)
+      setEntry(data)
+      setError(null)
 
       if (data.providerCode) {
         try {
-          const files = JSON.parse(data.providerCode);
-          const fileNames = Object.keys(files);
+          const files = JSON.parse(data.providerCode)
+          const fileNames = Object.keys(files)
           if (fileNames.length > 0) {
-            setActiveCodeFile(fileNames[0]);
+            setActiveCodeFile(fileNames[0])
           }
         } catch {
           // Not JSON, just raw code
         }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load entry");
+      setError(e instanceof Error ? e.message : "Failed to load entry")
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   }
 
@@ -61,7 +61,7 @@ export default function LeaderboardEntryPage() {
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
-    );
+    )
   }
 
   if (error || !entry) {
@@ -72,25 +72,26 @@ export default function LeaderboardEntryPage() {
           Back to Leaderboard
         </Link>
       </div>
-    );
+    )
   }
 
-  let codeFiles: Record<string, string> = {};
+  let codeFiles: Record<string, string> = {}
   try {
-    codeFiles = JSON.parse(entry.providerCode);
+    codeFiles = JSON.parse(entry.providerCode)
   } catch {
-    codeFiles = { "index.ts": entry.providerCode };
+    codeFiles = { "index.ts": entry.providerCode }
   }
 
-  const codeFileNames = Object.keys(codeFiles);
-  const evaluations: EvaluationResult[] = entry.evaluations || [];
+  const codeFileNames = Object.keys(codeFiles)
+  const evaluations: EvaluationResult[] = entry.evaluations || []
 
-  const addedDate = new Date(entry.addedAt);
-  const formattedDate = `${addedDate.getFullYear()}-${
-    String(addedDate.getMonth() + 1).padStart(2, "0")
-  }-${String(addedDate.getDate()).padStart(2, "0")}`;
+  const addedDate = new Date(entry.addedAt)
+  const formattedDate = `${addedDate.getFullYear()}-${String(addedDate.getMonth() + 1).padStart(
+    2,
+    "0"
+  )}-${String(addedDate.getDate()).padStart(2, "0")}`
 
-  const tabs: Tab[] = ["overview", "results", "code"];
+  const tabs: Tab[] = ["overview", "results", "code"]
 
   const statsCards = [
     {
@@ -112,7 +113,7 @@ export default function LeaderboardEntryPage() {
       value: entry.answeringModel,
       mono: true,
     },
-  ];
+  ]
 
   return (
     <div className="animate-fade-in">
@@ -128,9 +129,7 @@ export default function LeaderboardEntryPage() {
         <h1 className="text-2xl font-display font-semibold text-text-primary flex items-center gap-3">
           <span className="capitalize">{entry.provider}</span>
           <span className="text-text-muted font-normal">/</span>
-          <span className="font-mono text-lg text-text-secondary">
-            {entry.version}
-          </span>
+          <span className="font-mono text-lg text-text-secondary">{entry.version}</span>
         </h1>
         <div className="flex items-center gap-4 mt-2 text-sm text-text-secondary">
           <span>
@@ -160,7 +159,7 @@ export default function LeaderboardEntryPage() {
               "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px cursor-pointer",
               activeTab === tab
                 ? "text-accent border-accent"
-                : "text-text-secondary border-transparent hover:text-text-primary",
+                : "text-text-secondary border-transparent hover:text-text-primary"
             )}
             onClick={() => setActiveTab(tab)}
           >
@@ -176,10 +175,7 @@ export default function LeaderboardEntryPage() {
           <StatsGrid cards={statsCards} />
           <AccuracyByType byQuestionType={entry.byQuestionType} />
           <LatencyTable latency={entry.latencyStats} />
-          <RetrievalMetrics
-            retrieval={entry.retrieval}
-            byQuestionType={entry.byQuestionType}
-          />
+          <RetrievalMetrics retrieval={entry.retrieval} byQuestionType={entry.byQuestionType} />
         </div>
       )}
 
@@ -194,7 +190,7 @@ export default function LeaderboardEntryPage() {
         />
       )}
     </div>
-  );
+  )
 }
 
 function CodeTab({
@@ -203,21 +199,21 @@ function CodeTab({
   activeCodeFile,
   setActiveCodeFile,
 }: {
-  codeFiles: Record<string, string>;
-  codeFileNames: string[];
-  activeCodeFile: string;
-  setActiveCodeFile: (file: string) => void;
+  codeFiles: Record<string, string>
+  codeFileNames: string[]
+  activeCodeFile: string
+  setActiveCodeFile: (file: string) => void
 }) {
-  const code = codeFiles[activeCodeFile] || "// No code available";
+  const code = codeFiles[activeCodeFile] || "// No code available"
 
   return (
     <div className="pr-6">
       {codeFileNames.length > 1 && (
         <div className="flex gap-0 mb-4">
           {codeFileNames.map((fileName, index) => {
-            const isSelected = activeCodeFile === fileName;
-            const isFirst = index === 0;
-            const isLast = index === codeFileNames.length - 1;
+            const isSelected = activeCodeFile === fileName
+            const isFirst = index === 0
+            const isLast = index === codeFileNames.length - 1
             return (
               <button
                 key={fileName}
@@ -226,28 +222,24 @@ function CodeTab({
                 className={cn(
                   "px-3 py-1.5 text-sm font-medium font-mono transition-colors border-t border-b border-r",
                   isFirst && "border-l rounded-l",
-                  isLast && "rounded-r",
+                  isLast && "rounded-r"
                 )}
                 style={{
-                  backgroundColor: isSelected
-                    ? "rgb(34, 34, 34)"
-                    : "transparent",
+                  backgroundColor: isSelected ? "rgb(34, 34, 34)" : "transparent",
                   borderColor: isSelected ? "rgb(34, 34, 34)" : "#444444",
                   color: isSelected ? "#ffffff" : "#888888",
                 }}
               >
                 {fileName}
               </button>
-            );
+            )
           })}
         </div>
       )}
 
       <div className="bg-[#0d0d0d] rounded border border-border overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2 bg-bg-elevated border-b border-border">
-          <span className="text-sm font-mono text-text-muted">
-            {activeCodeFile}
-          </span>
+          <span className="text-sm font-mono text-text-muted">{activeCodeFile}</span>
           <button
             className="text-xs text-text-muted hover:text-text-primary transition-colors cursor-pointer"
             onClick={() => navigator.clipboard.writeText(code)}
@@ -276,5 +268,5 @@ function CodeTab({
         </Highlight>
       </div>
     </div>
-  );
+  )
 }

@@ -1,7 +1,7 @@
-import { existsSync, mkdirSync, writeFileSync } from "fs";
-import { join } from "path";
-import type { Benchmark } from "../../types/benchmark";
-import type { RunCheckpoint } from "../../types/checkpoint";
+import { existsSync, mkdirSync, writeFileSync } from "fs"
+import { join } from "path"
+import type { Benchmark } from "../../types/benchmark"
+import type { RunCheckpoint } from "../../types/checkpoint"
 import type {
   BenchmarkResult,
   EvaluationResult,
@@ -10,15 +10,13 @@ import type {
   RetrievalAggregates,
   RetrievalMetrics,
   TokenMetrics,
-} from "../../types/unified";
-import { logger } from "../../utils/logger";
+} from "../../types/unified"
+import { logger } from "../../utils/logger"
 
-const REPORTS_DIR = "./data/runs";
+const REPORTS_DIR = "./data/runs"
 
-function aggregateRetrievalMetrics(
-  metrics: RetrievalMetrics[],
-): RetrievalAggregates | undefined {
-  if (metrics.length === 0) return undefined;
+function aggregateRetrievalMetrics(metrics: RetrievalMetrics[]): RetrievalAggregates | undefined {
+  if (metrics.length === 0) return undefined
 
   const sum = metrics.reduce(
     (acc, m) => ({
@@ -38,10 +36,10 @@ function aggregateRetrievalMetrics(
       mrr: 0,
       ndcg: 0,
       k: 10,
-    },
-  );
+    }
+  )
 
-  const n = metrics.length;
+  const n = metrics.length
   return {
     hitAtK: sum.hitAtK / n,
     precisionAtK: sum.precisionAtK / n,
@@ -50,7 +48,7 @@ function aggregateRetrievalMetrics(
     mrr: sum.mrr / n,
     ndcg: sum.ndcg / n,
     k: sum.k,
-  };
+  }
 }
 
 function calculateLatencyStats(durations: number[]): LatencyStats {
@@ -64,17 +62,16 @@ function calculateLatencyStats(durations: number[]): LatencyStats {
       p99: 0,
       stdDev: 0,
       count: 0,
-    };
+    }
   }
 
-  const sorted = [...durations].sort((a, b) => a - b);
-  const n = sorted.length;
-  const sum = sorted.reduce((a, b) => a + b, 0);
-  const mean = sum / n;
+  const sorted = [...durations].sort((a, b) => a - b)
+  const n = sorted.length
+  const sum = sorted.reduce((a, b) => a + b, 0)
+  const mean = sum / n
 
-  const variance =
-    sorted.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / n;
-  const stdDev = Math.sqrt(variance);
+  const variance = sorted.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / n
+  const stdDev = Math.sqrt(variance)
 
   return {
     min: sorted[0],
@@ -85,61 +82,59 @@ function calculateLatencyStats(durations: number[]): LatencyStats {
     p99: sorted[Math.floor(n * 0.99)] || sorted[n - 1],
     stdDev: Math.round(stdDev),
     count: n,
-  };
+  }
 }
 
-export function generateReport(
-  benchmark: Benchmark,
-  checkpoint: RunCheckpoint,
-): BenchmarkResult {
-  const questions = benchmark.getQuestions();
-  const evaluations: EvaluationResult[] = [];
+export function generateReport(benchmark: Benchmark, checkpoint: RunCheckpoint): BenchmarkResult {
+  const questions = benchmark.getQuestions()
+  const evaluations: EvaluationResult[] = []
 
-  const ingestDurations: number[] = [];
-  const indexingDurations: number[] = [];
-  const searchDurations: number[] = [];
-  const answerDurations: number[] = [];
-  const evaluateDurations: number[] = [];
-  const totalDurations: number[] = [];
+  const ingestDurations: number[] = []
+  const indexingDurations: number[] = []
+  const searchDurations: number[] = []
+  const answerDurations: number[] = []
+  const evaluateDurations: number[] = []
+  const totalDurations: number[] = []
 
-  const allRetrievalMetrics: RetrievalMetrics[] = [];
+  const allRetrievalMetrics: RetrievalMetrics[] = []
 
   const byType: Record<
     string,
     {
-      total: number;
-      correct: number;
-      searchDurations: number[];
-      answerDurations: number[];
-      totalDurations: number[];
-      retrievalMetrics: RetrievalMetrics[];
+      total: number
+      correct: number
+      searchDurations: number[]
+      answerDurations: number[]
+      totalDurations: number[]
+      retrievalMetrics: RetrievalMetrics[]
     }
-  > = {};
+  > = {}
 
   for (const question of questions) {
-    const qCheckpoint = checkpoint.questions[question.questionId];
-    if (!qCheckpoint) continue;
+    const qCheckpoint = checkpoint.questions[question.questionId]
+    if (!qCheckpoint) continue
 
-    const evalPhase = qCheckpoint.phases.evaluate;
-    if (evalPhase.status !== "completed") continue;
+    const evalPhase = qCheckpoint.phases.evaluate
+    if (evalPhase.status !== "completed") continue
 
-    const ingestPhase = qCheckpoint.phases.ingest;
-    const indexingPhase = qCheckpoint.phases.indexing;
-    const searchPhase = qCheckpoint.phases.search;
-    const answerPhase = qCheckpoint.phases.answer;
+    const ingestPhase = qCheckpoint.phases.ingest
+    const indexingPhase = qCheckpoint.phases.indexing
+    const searchPhase = qCheckpoint.phases.search
+    const answerPhase = qCheckpoint.phases.answer
 
-    const ingestDurationMs = ingestPhase.durationMs || 0;
-    const indexingDurationMs = indexingPhase.durationMs || 0;
-    const searchDurationMs = searchPhase.durationMs || 0;
-    const answerDurationMs = answerPhase.durationMs || 0;
-    const evaluateDurationMs = evalPhase.durationMs || 0;
-    const totalDurationMs = ingestDurationMs +
+    const ingestDurationMs = ingestPhase.durationMs || 0
+    const indexingDurationMs = indexingPhase.durationMs || 0
+    const searchDurationMs = searchPhase.durationMs || 0
+    const answerDurationMs = answerPhase.durationMs || 0
+    const evaluateDurationMs = evalPhase.durationMs || 0
+    const totalDurationMs =
+      ingestDurationMs +
       indexingDurationMs +
       searchDurationMs +
       answerDurationMs +
-      evaluateDurationMs;
+      evaluateDurationMs
 
-    const retrievalMetrics = evalPhase.retrievalMetrics;
+    const retrievalMetrics = evalPhase.retrievalMetrics
 
     evaluations.push({
       questionId: question.questionId,
@@ -155,22 +150,22 @@ export function generateReport(
       answerDurationMs,
       totalDurationMs,
       retrievalMetrics,
-    });
+    })
 
     if (retrievalMetrics) {
-      allRetrievalMetrics.push(retrievalMetrics);
+      allRetrievalMetrics.push(retrievalMetrics)
     }
 
-    if (ingestPhase.durationMs) ingestDurations.push(ingestPhase.durationMs);
+    if (ingestPhase.durationMs) ingestDurations.push(ingestPhase.durationMs)
     if (indexingPhase.durationMs) {
-      indexingDurations.push(indexingPhase.durationMs);
+      indexingDurations.push(indexingPhase.durationMs)
     }
-    if (searchPhase.durationMs) searchDurations.push(searchPhase.durationMs);
-    if (answerPhase.durationMs) answerDurations.push(answerPhase.durationMs);
-    if (evalPhase.durationMs) evaluateDurations.push(evalPhase.durationMs);
-    if (totalDurationMs > 0) totalDurations.push(totalDurationMs);
+    if (searchPhase.durationMs) searchDurations.push(searchPhase.durationMs)
+    if (answerPhase.durationMs) answerDurations.push(answerPhase.durationMs)
+    if (evalPhase.durationMs) evaluateDurations.push(evalPhase.durationMs)
+    if (totalDurationMs > 0) totalDurations.push(totalDurationMs)
 
-    const qType = question.questionType;
+    const qType = question.questionType
     if (!byType[qType]) {
       byType[qType] = {
         total: 0,
@@ -179,22 +174,22 @@ export function generateReport(
         answerDurations: [],
         totalDurations: [],
         retrievalMetrics: [],
-      };
+      }
     }
-    const typeStats = byType[qType]!;
-    typeStats.total++;
+    const typeStats = byType[qType]!
+    typeStats.total++
     if (evalPhase.score === 1) {
-      typeStats.correct++;
+      typeStats.correct++
     }
-    if (searchDurationMs) typeStats.searchDurations.push(searchDurationMs);
-    if (answerDurationMs) typeStats.answerDurations.push(answerDurationMs);
-    if (totalDurationMs > 0) typeStats.totalDurations.push(totalDurationMs);
-    if (retrievalMetrics) typeStats.retrievalMetrics.push(retrievalMetrics);
+    if (searchDurationMs) typeStats.searchDurations.push(searchDurationMs)
+    if (answerDurationMs) typeStats.answerDurations.push(answerDurationMs)
+    if (totalDurationMs > 0) typeStats.totalDurations.push(totalDurationMs)
+    if (retrievalMetrics) typeStats.retrievalMetrics.push(retrievalMetrics)
   }
 
-  const byQuestionType: Record<string, QuestionTypeStats> = {};
+  const byQuestionType: Record<string, QuestionTypeStats> = {}
   for (const type of Object.keys(byType)) {
-    const raw = byType[type]!;
+    const raw = byType[type]!
     byQuestionType[type] = {
       total: raw.total,
       correct: raw.correct,
@@ -205,41 +200,38 @@ export function generateReport(
         total: calculateLatencyStats(raw.totalDurations),
       },
       retrieval: aggregateRetrievalMetrics(raw.retrievalMetrics),
-    };
+    }
   }
 
-  const overallRetrieval = aggregateRetrievalMetrics(allRetrievalMetrics);
+  const overallRetrieval = aggregateRetrievalMetrics(allRetrievalMetrics)
 
   // Aggregate token metrics — only from evaluated questions (same population as quality/latency)
-  let tokenMetrics: TokenMetrics | undefined;
-  const allPromptTokens: number[] = [];
-  const allBasePromptTokens: number[] = [];
-  const allContextTokens: number[] = [];
+  let tokenMetrics: TokenMetrics | undefined
+  const allPromptTokens: number[] = []
+  const allBasePromptTokens: number[] = []
+  const allContextTokens: number[] = []
 
   for (const question of questions) {
-    const qCheckpoint = checkpoint.questions[question.questionId];
-    if (!qCheckpoint) continue;
+    const qCheckpoint = checkpoint.questions[question.questionId]
+    if (!qCheckpoint) continue
     // Only consider questions that were evaluated (same filter as the quality/latency loop above)
-    if (qCheckpoint.phases.evaluate.status !== "completed") continue;
-    const answerPhase = qCheckpoint.phases.answer;
+    if (qCheckpoint.phases.evaluate.status !== "completed") continue
+    const answerPhase = qCheckpoint.phases.answer
     if (answerPhase.promptTokens != null) {
-      allPromptTokens.push(answerPhase.promptTokens);
+      allPromptTokens.push(answerPhase.promptTokens)
     }
     if (answerPhase.basePromptTokens != null) {
-      allBasePromptTokens.push(answerPhase.basePromptTokens);
+      allBasePromptTokens.push(answerPhase.basePromptTokens)
     }
     if (answerPhase.contextTokens != null) {
-      allContextTokens.push(answerPhase.contextTokens);
+      allContextTokens.push(answerPhase.contextTokens)
     }
   }
 
   if (allPromptTokens.length > 0) {
-    const totalTokens = allPromptTokens.reduce((a, b) => a + b, 0);
-    const totalBasePromptTokens = allBasePromptTokens.reduce(
-      (a, b) => a + b,
-      0,
-    );
-    const totalContextTokens = allContextTokens.reduce((a, b) => a + b, 0);
+    const totalTokens = allPromptTokens.reduce((a, b) => a + b, 0)
+    const totalBasePromptTokens = allBasePromptTokens.reduce((a, b) => a + b, 0)
+    const totalContextTokens = allContextTokens.reduce((a, b) => a + b, 0)
 
     // Use the number of questions with token data as the denominator for averages.
     // This is accurate because we already filtered to evaluated questions above.
@@ -248,29 +240,31 @@ export function generateReport(
       basePromptTokens: totalBasePromptTokens,
       contextTokens: totalContextTokens,
       avgTokensPerQuestion: Math.round(totalTokens / allPromptTokens.length),
-      avgBasePromptTokens: allBasePromptTokens.length > 0
-        ? Math.round(totalBasePromptTokens / allBasePromptTokens.length)
-        : 0,
-      avgContextTokens: allContextTokens.length > 0
-        ? Math.round(totalContextTokens / allContextTokens.length)
-        : 0,
-    };
+      avgBasePromptTokens:
+        allBasePromptTokens.length > 0
+          ? Math.round(totalBasePromptTokens / allBasePromptTokens.length)
+          : 0,
+      avgContextTokens:
+        allContextTokens.length > 0 ? Math.round(totalContextTokens / allContextTokens.length) : 0,
+    }
   }
 
-  const totalQuestions = evaluations.length;
-  const correctCount = evaluations.filter((e) => e.score === 1).length;
-  const accuracy = totalQuestions > 0 ? correctCount / totalQuestions : 0;
+  const totalQuestions = evaluations.length
+  const correctCount = evaluations.filter((e) => e.score === 1).length
+  const accuracy = totalQuestions > 0 ? correctCount / totalQuestions : 0
 
-  const searchLatencyStats = calculateLatencyStats(searchDurations);
-  const qualityPct = Math.round(accuracy * 100);
-  const avgLatency = searchLatencyStats.mean;
+  const searchLatencyStats = calculateLatencyStats(searchDurations)
+  const qualityPct = Math.round(accuracy * 100)
+  const avgLatency = searchLatencyStats.mean
 
-  let memscore: string | undefined;
-  let memscoreComponents: {
-    quality: number;
-    latencyMs: number;
-    contextTokens: number;
-  } | undefined;
+  let memscore: string | undefined
+  let memscoreComponents:
+    | {
+        quality: number
+        latencyMs: number
+        contextTokens: number
+      }
+    | undefined
   // Only emit MemScore when token data covers all evaluated questions,
   // so quality, latency, and tokens are derived from the same population.
   if (tokenMetrics && allPromptTokens.length === totalQuestions) {
@@ -278,9 +272,8 @@ export function generateReport(
       quality: qualityPct,
       latencyMs: avgLatency,
       contextTokens: tokenMetrics.avgContextTokens,
-    };
-    memscore =
-      `${qualityPct}% / ${avgLatency}ms / ${tokenMetrics.avgContextTokens}tok`;
+    }
+    memscore = `${qualityPct}% / ${avgLatency}ms / ${tokenMetrics.avgContextTokens}tok`
   }
 
   const result: BenchmarkResult = {
@@ -311,112 +304,104 @@ export function generateReport(
     byQuestionType,
     questionTypeRegistry: benchmark.getQuestionTypes(),
     evaluations,
-  };
+  }
 
-  return result;
+  return result
 }
 
 export function saveReport(result: BenchmarkResult): string {
-  const reportsDir = join(REPORTS_DIR, result.runId);
+  const reportsDir = join(REPORTS_DIR, result.runId)
   if (!existsSync(reportsDir)) {
-    mkdirSync(reportsDir, { recursive: true });
+    mkdirSync(reportsDir, { recursive: true })
   }
 
-  const reportPath = join(reportsDir, "report.json");
-  writeFileSync(reportPath, JSON.stringify(result, null, 2));
+  const reportPath = join(reportsDir, "report.json")
+  writeFileSync(reportPath, JSON.stringify(result, null, 2))
 
-  logger.success(`Report saved to ${reportPath}`);
-  return reportPath;
+  logger.success(`Report saved to ${reportPath}`)
+  return reportPath
 }
 
 function formatLatencyRow(stats: LatencyStats): string {
-  const pad = (n: number) => n.toString().padStart(7);
-  return `${pad(stats.min)} ${pad(stats.max)} ${pad(stats.mean)} ${
-    pad(stats.median)
-  } ${pad(stats.p95)} ${pad(stats.p99)}`;
+  const pad = (n: number) => n.toString().padStart(7)
+  return `${pad(stats.min)} ${pad(stats.max)} ${pad(stats.mean)} ${pad(
+    stats.median
+  )} ${pad(stats.p95)} ${pad(stats.p99)}`
 }
 
 export function printReport(result: BenchmarkResult): void {
-  console.log("\n" + "=".repeat(60));
-  console.log("MEMORYBENCH RESULTS");
-  console.log("=".repeat(60));
-  console.log(`Provider: ${result.provider}`);
-  console.log(`Benchmark: ${result.benchmark}`);
-  console.log(`Run ID: ${result.runId}`);
-  console.log(`Data Source: ${result.dataSourceRunId}`);
-  console.log(`Judge: ${result.judge}`);
-  console.log(`Answering Model: ${result.answeringModel}`);
-  console.log("-".repeat(60));
-  console.log("\nSUMMARY:");
-  console.log(`  Total Questions: ${result.summary.totalQuestions}`);
-  console.log(`  Correct: ${result.summary.correctCount}`);
-  console.log(`  Accuracy: ${(result.summary.accuracy * 100).toFixed(2)}%`);
+  console.log("\n" + "=".repeat(60))
+  console.log("MEMORYBENCH RESULTS")
+  console.log("=".repeat(60))
+  console.log(`Provider: ${result.provider}`)
+  console.log(`Benchmark: ${result.benchmark}`)
+  console.log(`Run ID: ${result.runId}`)
+  console.log(`Data Source: ${result.dataSourceRunId}`)
+  console.log(`Judge: ${result.judge}`)
+  console.log(`Answering Model: ${result.answeringModel}`)
+  console.log("-".repeat(60))
+  console.log("\nSUMMARY:")
+  console.log(`  Total Questions: ${result.summary.totalQuestions}`)
+  console.log(`  Correct: ${result.summary.correctCount}`)
+  console.log(`  Accuracy: ${(result.summary.accuracy * 100).toFixed(2)}%`)
 
   if (result.memscore && result.tokens) {
-    const qualityPct = Math.round(result.summary.accuracy * 100);
-    const avgLatency = result.latency.search.mean;
-    console.log("");
-    console.log(`  Quality:  ${qualityPct}%`);
-    console.log(`  Latency:  ${avgLatency}ms (avg)`);
+    const qualityPct = Math.round(result.summary.accuracy * 100)
+    const avgLatency = result.latency.search.mean
+    console.log("")
+    console.log(`  Quality:  ${qualityPct}%`)
+    console.log(`  Latency:  ${avgLatency}ms (avg)`)
     console.log(
-      `  Tokens:   ${result.tokens.avgContextTokens.toLocaleString()} (avg context sent to answering model)`,
-    );
-    console.log("");
-    console.log(`  MemScore: ${result.memscore}`);
+      `  Tokens:   ${result.tokens.avgContextTokens.toLocaleString()} (avg context sent to answering model)`
+    )
+    console.log("")
+    console.log(`  MemScore: ${result.memscore}`)
   }
 
-  console.log("-".repeat(60));
-  console.log("\nLATENCY (ms):");
-  console.log(
-    "                    min     max    mean  median     p95     p99",
-  );
-  console.log(`  Ingest:       ${formatLatencyRow(result.latency.ingest)}`);
-  console.log(`  Indexing:     ${formatLatencyRow(result.latency.indexing)}`);
-  console.log(`  Search:       ${formatLatencyRow(result.latency.search)}`);
-  console.log(`  Answer:       ${formatLatencyRow(result.latency.answer)}`);
-  console.log(`  Evaluate:     ${formatLatencyRow(result.latency.evaluate)}`);
-  console.log(`  Total:        ${formatLatencyRow(result.latency.total)}`);
+  console.log("-".repeat(60))
+  console.log("\nLATENCY (ms):")
+  console.log("                    min     max    mean  median     p95     p99")
+  console.log(`  Ingest:       ${formatLatencyRow(result.latency.ingest)}`)
+  console.log(`  Indexing:     ${formatLatencyRow(result.latency.indexing)}`)
+  console.log(`  Search:       ${formatLatencyRow(result.latency.search)}`)
+  console.log(`  Answer:       ${formatLatencyRow(result.latency.answer)}`)
+  console.log(`  Evaluate:     ${formatLatencyRow(result.latency.evaluate)}`)
+  console.log(`  Total:        ${formatLatencyRow(result.latency.total)}`)
 
   if (result.retrieval) {
-    console.log("-".repeat(60));
-    console.log("\nRETRIEVAL QUALITY (K=" + result.retrieval.k + "):");
-    console.log(`  Hit@K:      ${(result.retrieval.hitAtK * 100).toFixed(1)}%`);
-    console.log(
-      `  Precision:  ${(result.retrieval.precisionAtK * 100).toFixed(1)}%`,
-    );
-    console.log(
-      `  Recall:     ${(result.retrieval.recallAtK * 100).toFixed(1)}%`,
-    );
-    console.log(`  F1:         ${(result.retrieval.f1AtK * 100).toFixed(1)}%`);
-    console.log(`  MRR:        ${result.retrieval.mrr.toFixed(3)}`);
-    console.log(`  NDCG:       ${result.retrieval.ndcg.toFixed(3)}`);
+    console.log("-".repeat(60))
+    console.log("\nRETRIEVAL QUALITY (K=" + result.retrieval.k + "):")
+    console.log(`  Hit@K:      ${(result.retrieval.hitAtK * 100).toFixed(1)}%`)
+    console.log(`  Precision:  ${(result.retrieval.precisionAtK * 100).toFixed(1)}%`)
+    console.log(`  Recall:     ${(result.retrieval.recallAtK * 100).toFixed(1)}%`)
+    console.log(`  F1:         ${(result.retrieval.f1AtK * 100).toFixed(1)}%`)
+    console.log(`  MRR:        ${result.retrieval.mrr.toFixed(3)}`)
+    console.log(`  NDCG:       ${result.retrieval.ndcg.toFixed(3)}`)
   }
 
-  console.log("-".repeat(60));
-  console.log("\nBY QUESTION TYPE:");
+  console.log("-".repeat(60))
+  console.log("\nBY QUESTION TYPE:")
   for (const [type, stats] of Object.entries(result.byQuestionType)) {
-    const typeInfo = result.questionTypeRegistry?.[type];
-    const description = typeInfo?.description
-      ? ` (${typeInfo.description})`
-      : "";
-    console.log(`  ${type}${description}:`);
+    const typeInfo = result.questionTypeRegistry?.[type]
+    const description = typeInfo?.description ? ` (${typeInfo.description})` : ""
+    console.log(`  ${type}${description}:`)
     console.log(
-      `    Total: ${stats.total}, Correct: ${stats.correct}, Accuracy: ${
-        (stats.accuracy * 100).toFixed(2)
-      }%`,
-    );
+      `    Total: ${stats.total}, Correct: ${stats.correct}, Accuracy: ${(
+        stats.accuracy * 100
+      ).toFixed(2)}%`
+    )
     console.log(
-      `    Latency: search=${stats.latency.search.median}ms, answer=${stats.latency.answer.median}ms, total=${stats.latency.total.median}ms (median)`,
-    );
+      `    Latency: search=${stats.latency.search.median}ms, answer=${stats.latency.answer.median}ms, total=${stats.latency.total.median}ms (median)`
+    )
     if (stats.retrieval) {
       console.log(
-        `    Retrieval: Hit@${stats.retrieval.k}=${
-          (stats.retrieval.hitAtK * 100).toFixed(0)
-        }%, P=${(stats.retrieval.precisionAtK * 100).toFixed(0)}%, R=${
-          (stats.retrieval.recallAtK * 100).toFixed(0)
-        }%, MRR=${stats.retrieval.mrr.toFixed(2)}`,
-      );
+        `    Retrieval: Hit@${stats.retrieval.k}=${(stats.retrieval.hitAtK * 100).toFixed(
+          0
+        )}%, P=${(stats.retrieval.precisionAtK * 100).toFixed(0)}%, R=${(
+          stats.retrieval.recallAtK * 100
+        ).toFixed(0)}%, MRR=${stats.retrieval.mrr.toFixed(2)}`
+      )
     }
   }
-  console.log("=".repeat(60) + "\n");
+  console.log("=".repeat(60) + "\n")
 }

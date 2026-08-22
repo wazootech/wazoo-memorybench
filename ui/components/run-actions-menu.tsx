@@ -1,21 +1,19 @@
-"use client";
+"use client"
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
+import Link from "next/link"
+import { cn } from "@/lib/utils"
 
 interface RunActionsMenuProps {
-  runId: string;
-  provider: string;
-  benchmark: string;
-  status: string;
-  onAddToLeaderboard: (
-    data: { version?: string; notes?: string },
-  ) => Promise<void>;
-  onDelete: () => void;
-  onTerminate?: () => void;
-  onContinue?: () => void;
+  runId: string
+  provider: string
+  benchmark: string
+  status: string
+  onAddToLeaderboard: (data: { version?: string; notes?: string }) => Promise<void>
+  onDelete: () => void
+  onTerminate?: () => void
+  onContinue?: () => void
 }
 
 export function RunActionsMenu({
@@ -28,79 +26,76 @@ export function RunActionsMenu({
   onTerminate,
   onContinue,
 }: RunActionsMenuProps) {
-  const [open, setOpen] = useState(false);
-  const [showLeaderboardPopover, setShowLeaderboardPopover] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
-  const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
+  const [open, setOpen] = useState(false)
+  const [showLeaderboardPopover, setShowLeaderboardPopover] = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
+  const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 })
 
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
 
-  const isCompleted = status === "completed";
-  const isRunning = status === "running" || status === "pending";
-  const isStopping = status === "stopping";
-  const isFailed = status === "failed";
-  const isPartial = status === "partial";
-  const canContinue = isFailed || isPartial;
+  const isCompleted = status === "completed"
+  const isRunning = status === "running" || status === "pending"
+  const isStopping = status === "stopping"
+  const isFailed = status === "failed"
+  const isPartial = status === "partial"
+  const canContinue = isFailed || isPartial
 
   // Calculate dropdown position
   useEffect(() => {
     if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const dropdownWidth = 192;
+      const rect = triggerRef.current.getBoundingClientRect()
+      const dropdownWidth = 192
 
       setPosition({
         top: rect.bottom + 4,
         left: rect.right - dropdownWidth,
-      });
+      })
     }
-  }, [open]);
+  }, [open])
 
   // Calculate popover position
   useEffect(() => {
     if (showLeaderboardPopover && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const popoverWidth = 320;
+      const rect = triggerRef.current.getBoundingClientRect()
+      const popoverWidth = 320
 
       setPopoverPosition({
         top: rect.bottom + 4,
         left: Math.max(16, rect.right - popoverWidth),
-      });
+      })
     }
-  }, [showLeaderboardPopover]);
+  }, [showLeaderboardPopover])
 
   // Click outside handler
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
+      const target = event.target as Node
 
       // Handle dropdown
       if (open && triggerRef.current && dropdownRef.current) {
-        if (
-          !triggerRef.current.contains(target) &&
-          !dropdownRef.current.contains(target)
-        ) {
-          setOpen(false);
+        if (!triggerRef.current.contains(target) && !dropdownRef.current.contains(target)) {
+          setOpen(false)
         }
       }
 
       // Handle popover
       if (showLeaderboardPopover && popoverRef.current) {
         if (!popoverRef.current.contains(target)) {
-          setShowLeaderboardPopover(false);
+          setShowLeaderboardPopover(false)
         }
       }
     }
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open, showLeaderboardPopover]);
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [open, showLeaderboardPopover])
 
   const handleOpenLeaderboard = () => {
-    setOpen(false);
-    setShowLeaderboardPopover(true);
-  };
+    setOpen(false)
+    setShowLeaderboardPopover(true)
+  }
 
   return (
     <>
@@ -108,8 +103,8 @@ export function RunActionsMenu({
         ref={triggerRef}
         className="p-1.5 text-text-muted hover:text-text-primary rounded hover:bg-[#222222] transition-colors cursor-pointer"
         onClick={(e) => {
-          e.stopPropagation();
-          setOpen(!open);
+          e.stopPropagation()
+          setOpen(!open)
         }}
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -144,7 +139,7 @@ export function RunActionsMenu({
                   "w-full px-3 py-2 text-sm text-left transition-colors flex items-center gap-2 cursor-pointer",
                   !isCompleted
                     ? "text-text-muted cursor-not-allowed"
-                    : "text-text-secondary hover:bg-[#222222] hover:text-text-primary",
+                    : "text-text-secondary hover:bg-[#222222] hover:text-text-primary"
                 )}
                 disabled={!isCompleted}
                 onClick={handleOpenLeaderboard}
@@ -158,8 +153,8 @@ export function RunActionsMenu({
                   <button
                     className="w-full px-3 py-2 text-sm text-left transition-colors flex items-center gap-2 cursor-pointer text-accent hover:bg-[#222222]"
                     onClick={() => {
-                      onContinue?.();
-                      setOpen(false);
+                      onContinue?.()
+                      setOpen(false)
                     }}
                   >
                     continue
@@ -169,38 +164,36 @@ export function RunActionsMenu({
 
               <div className="border-t border-[#333333] my-1" />
 
-              {isRunning || isStopping
-                ? (
-                  <button
-                    className={cn(
-                      "w-full px-3 py-2 text-sm text-left transition-colors flex items-center gap-2 cursor-pointer",
-                      isStopping
-                        ? "text-text-muted cursor-not-allowed"
-                        : "text-status-error hover:bg-[#222222]",
-                    )}
-                    disabled={isStopping}
-                    onClick={() => {
-                      onTerminate?.();
-                      setOpen(false);
-                    }}
-                  >
-                    {isStopping ? "stopping..." : "terminate"}
-                  </button>
-                )
-                : (
-                  <button
-                    className="w-full px-3 py-2 text-sm text-left transition-colors flex items-center gap-2 cursor-pointer text-status-error hover:bg-[#222222]"
-                    onClick={() => {
-                      onDelete();
-                      setOpen(false);
-                    }}
-                  >
-                    delete
-                  </button>
-                )}
+              {isRunning || isStopping ? (
+                <button
+                  className={cn(
+                    "w-full px-3 py-2 text-sm text-left transition-colors flex items-center gap-2 cursor-pointer",
+                    isStopping
+                      ? "text-text-muted cursor-not-allowed"
+                      : "text-status-error hover:bg-[#222222]"
+                  )}
+                  disabled={isStopping}
+                  onClick={() => {
+                    onTerminate?.()
+                    setOpen(false)
+                  }}
+                >
+                  {isStopping ? "stopping..." : "terminate"}
+                </button>
+              ) : (
+                <button
+                  className="w-full px-3 py-2 text-sm text-left transition-colors flex items-center gap-2 cursor-pointer text-status-error hover:bg-[#222222]"
+                  onClick={() => {
+                    onDelete()
+                    setOpen(false)
+                  }}
+                >
+                  delete
+                </button>
+              )}
             </div>
           </div>,
-          document.body,
+          document.body
         )}
 
       {/* Leaderboard popover */}
@@ -213,56 +206,56 @@ export function RunActionsMenu({
             provider={provider}
             benchmark={benchmark}
             onSubmit={async (data) => {
-              await onAddToLeaderboard(data);
-              setShowLeaderboardPopover(false);
+              await onAddToLeaderboard(data)
+              setShowLeaderboardPopover(false)
             }}
             onClose={() => setShowLeaderboardPopover(false)}
           />,
-          document.body,
+          document.body
         )}
     </>
-  );
+  )
 }
 
 // Separate popover component for adding to leaderboard
-import { forwardRef } from "react";
+import { forwardRef } from "react"
 
 interface LeaderboardPopoverProps {
-  position: { top: number; left: number };
-  provider: string;
-  benchmark: string;
-  onSubmit: (data: { version?: string; notes?: string }) => Promise<void>;
-  onClose: () => void;
+  position: { top: number; left: number }
+  provider: string
+  benchmark: string
+  onSubmit: (data: { version?: string; notes?: string }) => Promise<void>
+  onClose: () => void
 }
 
 const LeaderboardPopover = forwardRef<HTMLDivElement, LeaderboardPopoverProps>(
   ({ position, provider, benchmark, onSubmit, onClose }, ref) => {
-    const [editingVersion, setEditingVersion] = useState(false);
-    const [version, setVersion] = useState("");
-    const [notes, setNotes] = useState("");
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [editingVersion, setEditingVersion] = useState(false)
+    const [version, setVersion] = useState("")
+    const [notes, setNotes] = useState("")
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
-    const versionInputRef = useRef<HTMLInputElement>(null);
+    const versionInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
       if (editingVersion && versionInputRef.current) {
-        versionInputRef.current.focus();
+        versionInputRef.current.focus()
       }
-    }, [editingVersion]);
+    }, [editingVersion])
 
     const handleSubmit = async () => {
       try {
-        setIsSubmitting(true);
+        setIsSubmitting(true)
         await onSubmit({
           version: version.trim() || undefined,
           notes: notes.trim() || undefined,
-        });
+        })
       } catch (e) {
-        alert(e instanceof Error ? e.message : "failed to add to leaderboard");
+        alert(e instanceof Error ? e.message : "failed to add to leaderboard")
       } finally {
-        setIsSubmitting(false);
+        setIsSubmitting(false)
       }
-    };
+    }
 
     return (
       <div
@@ -288,11 +281,7 @@ const LeaderboardPopover = forwardRef<HTMLDivElement, LeaderboardPopoverProps>(
               stroke="currentColor"
               strokeWidth={2}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
@@ -308,46 +297,42 @@ const LeaderboardPopover = forwardRef<HTMLDivElement, LeaderboardPopoverProps>(
           {/* Version */}
           <div className="space-y-1.5">
             <label className="text-xs text-text-muted">version</label>
-            {!editingVersion
-              ? (
-                <button
-                  className="flex items-center gap-2 text-sm text-text-primary hover:text-accent transition-colors cursor-pointer"
-                  onClick={() => setEditingVersion(true)}
+            {!editingVersion ? (
+              <button
+                className="flex items-center gap-2 text-sm text-text-primary hover:text-accent transition-colors cursor-pointer"
+                onClick={() => setEditingVersion(true)}
+              >
+                <span className="font-medium lowercase">{version || "baseline"}</span>
+                <svg
+                  className="w-3.5 h-3.5 text-text-muted"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
                 >
-                  <span className="font-medium lowercase">
-                    {version || "baseline"}
-                  </span>
-                  <svg
-                    className="w-3.5 h-3.5 text-text-muted"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                    />
-                  </svg>
-                </button>
-              )
-              : (
-                <input
-                  ref={versionInputRef}
-                  type="text"
-                  value={version}
-                  onChange={(e) => setVersion(e.target.value)}
-                  onBlur={() => setEditingVersion(false)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === "Escape") {
-                      setEditingVersion(false);
-                    }
-                  }}
-                  placeholder="baseline"
-                  className="w-full px-2 py-1.5 text-sm bg-[#222222] border border-[#444444] rounded text-text-primary placeholder-text-muted focus:outline-none focus:border-accent lowercase"
-                />
-              )}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                  />
+                </svg>
+              </button>
+            ) : (
+              <input
+                ref={versionInputRef}
+                type="text"
+                value={version}
+                onChange={(e) => setVersion(e.target.value)}
+                onBlur={() => setEditingVersion(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === "Escape") {
+                    setEditingVersion(false)
+                  }
+                }}
+                placeholder="baseline"
+                className="w-full px-2 py-1.5 text-sm bg-[#222222] border border-[#444444] rounded text-text-primary placeholder-text-muted focus:outline-none focus:border-accent lowercase"
+              />
+            )}
           </div>
 
           {/* Notes */}
@@ -366,29 +351,26 @@ const LeaderboardPopover = forwardRef<HTMLDivElement, LeaderboardPopoverProps>(
           <button
             className="w-full flex items-center justify-center gap-1.5 py-2 rounded text-sm font-medium transition-all font-display tracking-tight text-white border border-transparent hover:border-white/30 cursor-pointer disabled:opacity-50"
             style={{
-              background:
-                "linear-gradient(135deg, rgb(38, 123, 241) 40%, rgb(21, 70, 139) 100%)",
+              background: "linear-gradient(135deg, rgb(38, 123, 241) 40%, rgb(21, 70, 139) 100%)",
               boxShadow:
                 "rgba(255, 255, 255, 0.25) 2px 2px 8px 0px inset, rgba(0, 0, 0, 0.15) -2px -2px 7px 0px inset",
             }}
             onClick={handleSubmit}
             disabled={isSubmitting}
           >
-            {isSubmitting
-              ? (
-                "adding..."
-              )
-              : (
-                <>
-                  <span className="text-lg leading-none">+</span>
-                  <span>Add to Leaderboard</span>
-                </>
-              )}
+            {isSubmitting ? (
+              "adding..."
+            ) : (
+              <>
+                <span className="text-lg leading-none">+</span>
+                <span>Add to Leaderboard</span>
+              </>
+            )}
           </button>
         </div>
       </div>
-    );
-  },
-);
+    )
+  }
+)
 
-LeaderboardPopover.displayName = "LeaderboardPopover";
+LeaderboardPopover.displayName = "LeaderboardPopover"

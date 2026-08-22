@@ -1,24 +1,22 @@
-import type { ProviderPrompts } from "../../types/prompts";
+import type { ProviderPrompts } from "../../types/prompts"
 
 interface Mem0Memory {
-  memory?: string;
-  metadata?: Record<string, unknown>;
+  memory?: string
+  metadata?: Record<string, unknown>
 }
 
-export function buildMem0AnswerPrompt(
-  question: string,
-  context: unknown[],
-): string {
+export function buildMem0AnswerPrompt(question: string, context: unknown[]): string {
   const memoriesStr = context
     .map((r, i) => {
-      const mem = r as Mem0Memory;
-      const metadata = mem.metadata;
-      const timestampInfo = metadata?.date || metadata?.timestamp
-        ? ` [Timestamp: ${metadata.date || metadata.timestamp}]`
-        : "";
-      return `[${i + 1}]${timestampInfo} ${mem.memory || JSON.stringify(r)}`;
+      const mem = r as Mem0Memory
+      const metadata = mem.metadata
+      const timestampInfo =
+        metadata?.date || metadata?.timestamp
+          ? ` [Timestamp: ${metadata.date || metadata.timestamp}]`
+          : ""
+      return `[${i + 1}]${timestampInfo} ${mem.memory || JSON.stringify(r)}`
     })
-    .join("\n\n");
+    .join("\n\n")
 
   return `You are an intelligent memory assistant tasked with retrieving accurate information from conversation memories.
 
@@ -43,7 +41,7 @@ ${memoriesStr}
 
 Question: ${question}
 
-Answer concisely and directly.`;
+Answer concisely and directly.`
 }
 
 /**
@@ -51,6 +49,6 @@ Answer concisely and directly.`;
  */
 export const MEM0_PROMPTS: ProviderPrompts = {
   answerPrompt: buildMem0AnswerPrompt,
-};
+}
 
-export default MEM0_PROMPTS;
+export default MEM0_PROMPTS
