@@ -15,17 +15,17 @@ A pluggable benchmarking framework for evaluating memory and context systems.
 
 <img width="3584" height="2154" alt="original" src="https://github.com/user-attachments/assets/7fe49b7e-ed0b-4861-92a5-fa5d199cfc72" />
 
-
 ## Features
 
 - 🔌 Interoperable: mix and match any provider with any benchmark
 - 🧩 Bring your own benchmarks: plug in custom datasets and tasks
-- ♻️ Checkpointed runs: resume from any pipeline stage (ingest → index → search → answer → evaluate)
-- 🆚 Multi‑provider comparison: run the same benchmark across providers side‑by‑side
+- ♻️ Checkpointed runs: resume from any pipeline stage (ingest → index → search
+  → answer → evaluate)
+- 🆚 Multi‑provider comparison: run the same benchmark across providers
+  side‑by‑side
 - 🧪 Judge‑agnostic: swap GPT‑4o, Claude, Gemini, etc. without code changes
 - 📊 Structured reports: export run status, failures, and metrics for analysis
 - 🖥️ Web UI: inspect runs, questions, and failures interactively, in real-time!
-
 
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
@@ -69,18 +69,18 @@ GOOGLE_API_KEY=
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `run` | Full pipeline: ingest → index → search → answer → evaluate → report |
-| `compare` | Run benchmark across multiple providers simultaneously |
-| `ingest` | Ingest benchmark data into provider |
-| `search` | Run search phase only |
-| `test` | Test single question |
-| `status` | Check run progress |
-| `list-questions` | Browse benchmark questions |
-| `show-failures` | Debug failed questions |
-| `serve` | Start web UI |
-| `help` | Show help (`help providers`, `help models`, `help benchmarks`) |
+| Command          | Description                                                         |
+| ---------------- | ------------------------------------------------------------------- |
+| `run`            | Full pipeline: ingest → index → search → answer → evaluate → report |
+| `compare`        | Run benchmark across multiple providers simultaneously              |
+| `ingest`         | Ingest benchmark data into provider                                 |
+| `search`         | Run search phase only                                               |
+| `test`           | Test single question                                                |
+| `status`         | Check run progress                                                  |
+| `list-questions` | Browse benchmark questions                                          |
+| `show-failures`  | Debug failed questions                                              |
+| `serve`          | Start web UI                                                        |
+| `help`           | Show help (`help providers`, `help models`, `help benchmarks`)      |
 
 ## Options
 
@@ -135,21 +135,23 @@ bun run src/index.ts show-failures -r my-test
 6. REPORT    Aggregate scores → Output accuracy + latency
 ```
 
-Each phase checkpoints independently. Failed runs resume from last successful point.
+Each phase checkpoints independently. Failed runs resume from last successful
+point.
 
 ## MemScore
 
-MemScore is a composite metric that captures three dimensions of provider performance in a single line:
+MemScore is a composite metric that captures three dimensions of provider
+performance in a single line:
 
 ```
 accuracy% / latencyMs / contextTokens
 ```
 
-| Component | What it measures |
-|-----------|-----------------|
-| **Quality** | Answer accuracy — `(correct / total) * 100` from judge evaluations |
-| **Latency** | Average search response time in milliseconds |
-| **Tokens** | Average context tokens sent to the answering model (counted client-side) |
+| Component   | What it measures                                                         |
+| ----------- | ------------------------------------------------------------------------ |
+| **Quality** | Answer accuracy — `(correct / total) * 100` from judge evaluations       |
+| **Latency** | Average search response time in milliseconds                             |
+| **Tokens**  | Average context tokens sent to the answering model (counted client-side) |
 
 After a run completes, MemScore appears in the CLI summary:
 
@@ -161,19 +163,23 @@ Summary:
   MemScore: 86% / 145ms / 1823tok
 ```
 
-MemScore is intentionally a triple, not a single number — collapsing quality, latency, and cost into one score hides important tradeoffs. Use it to compare providers side-by-side on the same benchmark:
+MemScore is intentionally a triple, not a single number — collapsing quality,
+latency, and cost into one score hides important tradeoffs. Use it to compare
+providers side-by-side on the same benchmark:
 
 ```bash
 bun run src/index.ts compare -p supermemory,mem0,zep -b locomo -j gpt-4o
 ```
 
-The `report.json` includes both a display string and structured `memscoreComponents` for programmatic use.
+The `report.json` includes both a display string and structured
+`memscoreComponents` for programmatic use.
 
 > **[Full MemScore documentation →](https://supermemory.ai/docs/memorybench/memscore)**
 
 ## Checkpointing
 
 Runs persist to `data/runs/{runId}/`:
+
 - `checkpoint.json` - Run state and progress
 - `results/` - Search results per question
 - `report.json` - Final report
@@ -182,12 +188,12 @@ Re-running same ID resumes. Use `--force` to restart.
 
 ## Extending
 
-| Component | Guide |
-|-----------|-------|
-| Add Provider | [src/providers/README.md](src/providers/README.md) |
-| Add Benchmark | [src/benchmarks/README.md](src/benchmarks/README.md) |
-| Add Judge | [src/judges/README.md](src/judges/README.md) |
-| Project Structure | [src/README.md](src/README.md) |
+| Component         | Guide                                                |
+| ----------------- | ---------------------------------------------------- |
+| Add Provider      | [src/providers/README.md](src/providers/README.md)   |
+| Add Benchmark     | [src/benchmarks/README.md](src/benchmarks/README.md) |
+| Add Judge         | [src/judges/README.md](src/judges/README.md)         |
+| Project Structure | [src/README.md](src/README.md)                       |
 
 ## License
 

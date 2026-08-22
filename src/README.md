@@ -16,13 +16,13 @@ src/
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `types/provider.ts` | Provider interface |
-| `types/benchmark.ts` | Benchmark interface |
-| `types/judge.ts` | Judge interface |
-| `types/unified.ts` | Shared data types (UnifiedSession, UnifiedQuestion) |
-| `types/prompts.ts` | Prompt type definitions |
-| `utils/models.ts` | Model configurations and aliases |
-| `utils/config.ts` | Environment config loading |
-| `prompts/defaults.ts` | Default judge prompts |
+| File                  | Purpose                                             |
+| --------------------- | --------------------------------------------------- |
+| `types/provider.ts`   | Provider interface                                  |
+| `types/benchmark.ts`  | Benchmark interface                                 |
+| `types/judge.ts`      | Judge interface                                     |
+| `types/unified.ts`    | Shared data types (UnifiedSession, UnifiedQuestion) |
+| `types/prompts.ts`    | Prompt type definitions                             |
+| `utils/models.ts`     | Model configurations and aliases                    |
+| `utils/config.ts`     | Environment config loading                          |
+| `prompts/defaults.ts` | Default judge prompts                               |

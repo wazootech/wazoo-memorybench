@@ -23,27 +23,27 @@
  * (default deepseek-v4-flash), --limit <n> (default 5), --max-steps <n>
  * (default 8), --check-only, --replay <path>, --trace-id <suffix>.
  */
-import { appendFile, mkdir, writeFile, readFile } from "node:fs/promises"
-import { join } from "node:path"
-import { createGoogleGenerativeAI } from "@ai-sdk/google"
-import { createOpenAI } from "@ai-sdk/openai"
-import { generateText, tool, stepCountIs } from "ai"
-import { z } from "zod"
-import type { WorldsSdkInterface } from "@worlds/sdk"
-import { LoCoMoBenchmark } from "../src/benchmarks/locomo"
-import { WorldsProvider } from "../src/providers/worlds"
-import { config, getJudgeConfig } from "../src/utils/config"
-import { getModelConfig, ModelConfig } from "../src/utils/models"
-import { DeepSeekJudge } from "../src/judges/deepseek"
-import { logger } from "../src/utils/logger"
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenAI } from "@ai-sdk/openai";
+import { generateText, stepCountIs, tool } from "ai";
+import { z } from "zod";
+import type { WorldsSdkInterface } from "@worlds/sdk";
+import { LoCoMoBenchmark } from "../src/benchmarks/locomo";
+import { WorldsProvider } from "../src/providers/worlds";
+import { config, getJudgeConfig } from "../src/utils/config";
+import { getModelConfig, ModelConfig } from "../src/utils/models";
+import { DeepSeekJudge } from "../src/judges/deepseek";
+import { logger } from "../src/utils/logger";
 
-const DEFAULT_RUN_SUFFIX = "smoke-ds-001"
-const DEFAULT_MODEL = "deepseek-v4-flash"
-const DEFAULT_JUDGE = "deepseek-v4-flash"
-const DEFAULT_TOOLS = "search+sparql"
-const TRACE_DIR = join(process.cwd(), "data", "agent-traces")
+const DEFAULT_RUN_SUFFIX = "smoke-ds-001";
+const DEFAULT_MODEL = "deepseek-v4-flash";
+const DEFAULT_JUDGE = "deepseek-v4-flash";
+const DEFAULT_TOOLS = "search+sparql";
+const TRACE_DIR = join(process.cwd(), "data", "agent-traces");
 
-type ToolsMode = "sparql-only" | "search+sparql"
+type ToolsMode = "sparql-only" | "search+sparql";
 
 const SCHEMA_REFERENCE = `SPARQL Graph Schema & Multi-Hop Traversal:
 - Pre-declared Prefixes (you may use these without declaring):
@@ -91,7 +91,7 @@ Rules:
 - Use Session Date on results for temporal questions.
 - Cite evidence from tool results; do not invent facts.
 - Always include LIMIT (≤ 20) in SPARQL SELECT queries.
-- When you have enough evidence, answer concisely in plain text (no tool calls).`
+- When you have enough evidence, answer concisely in plain text (no tool calls).`;
 
 function buildSparqlOnlySystemPrompt(): string {
   return `You answer questions about a long conversation stored in a Worlds knowledge graph. Your ONLY tool is worlds_sparql — you must retrieve all evidence by writing SPARQL queries against the graph. There is no keyword search tool.
@@ -105,7 +105,7 @@ SPARQL-only strategy:
 - Break the question into entity + relation steps and chain them in one query (or a few).
 - For temporal questions, join through schema:dateCreated on the session (prov:wasDerivedFrom) or schema:startDate on events/claims.
 
-Remember: you MUST use worlds_sparql to gather evidence before answering.`
+Remember: you MUST use worlds_sparql to gather evidence before answering.`;
 }
 
 function buildSearchSparqlSystemPrompt(): string {
@@ -115,75 +115,87 @@ Tool order:
 1. worlds_search — default first step. Use short keywords and proper names, not full sentences.
 2. worlds_sparql — use when you need multi-hop domain graph traversal (across entities, organizations, events, actions, medical conditions) or structured SPARQL queries.
 
-${SCHEMA_REFERENCE}`
+${SCHEMA_REFERENCE}`;
 }
 
 type TraceRecord = {
-  questionId: string
-  question: string
-  questionType?: string
-  containerTag: string
-  groundTruth?: string
-  toolsMode: ToolsMode
-  model: string
-  startedAt: string
-  finishedAt?: string
-  error?: string
-  finalText?: string
-  judgeLabel?: string
-  judgeScore?: number
-  judgeExplanation?: string
-  steps?: unknown[]
-  toolCalls?: unknown[]
-  inputTokens?: number
-  outputTokens?: number
-  replayed?: boolean
-}
+  questionId: string;
+  question: string;
+  questionType?: string;
+  containerTag: string;
+  groundTruth?: string;
+  toolsMode: ToolsMode;
+  model: string;
+  startedAt: string;
+  finishedAt?: string;
+  error?: string;
+  finalText?: string;
+  judgeLabel?: string;
+  judgeScore?: number;
+  judgeExplanation?: string;
+  steps?: unknown[];
+  toolCalls?: unknown[];
+  inputTokens?: number;
+  outputTokens?: number;
+  replayed?: boolean;
+};
 
 interface PlainTool {
-  name: string
-  description: string
-  zodSchema: z.ZodObject<Record<string, z.ZodTypeAny>>
-  jsonSchema: Record<string, unknown>
-  execute: (args: Record<string, unknown>) => Promise<unknown>
+  name: string;
+  description: string;
+  zodSchema: z.ZodObject<Record<string, z.ZodTypeAny>>;
+  jsonSchema: Record<string, unknown>;
+  execute: (args: Record<string, unknown>) => Promise<unknown>;
 }
 
 function parseArgs(argv: string[]) {
-  const checkOnly = argv.includes("--check-only")
-  const replayIdx = argv.indexOf("--replay")
-  const replayPath = replayIdx >= 0 ? argv[replayIdx + 1] : undefined
-  const suffixIdx = argv.indexOf("--run-suffix")
-  const runSuffix = suffixIdx >= 0 ? argv[suffixIdx + 1]! : DEFAULT_RUN_SUFFIX
-  const limitIdx = argv.indexOf("--limit")
-  const limit = limitIdx >= 0 ? parseInt(argv[limitIdx + 1]!, 10) : 5
-  const modelIdx = argv.indexOf("--model")
-  const model = modelIdx >= 0 ? argv[modelIdx + 1]! : DEFAULT_MODEL
-  const judgeIdx = argv.indexOf("--judge")
-  const judge = judgeIdx >= 0 ? argv[judgeIdx + 1]! : DEFAULT_JUDGE
-  const toolsIdx = argv.indexOf("--tools")
-  const toolsRaw = toolsIdx >= 0 ? argv[toolsIdx + 1]! : DEFAULT_TOOLS
-  const toolsMode: ToolsMode = toolsRaw === "sparql-only" ? "sparql-only" : "search+sparql"
-  const maxStepsIdx = argv.indexOf("--max-steps")
-  const maxSteps = maxStepsIdx >= 0 ? parseInt(argv[maxStepsIdx + 1]!, 10) : 8
-  const traceIdIdx = argv.indexOf("--trace-id")
-  const traceId = traceIdIdx >= 0 ? argv[traceIdIdx + 1] : undefined
-  return { checkOnly, replayPath, runSuffix, limit, model, judge, toolsMode, maxSteps, traceId }
+  const checkOnly = argv.includes("--check-only");
+  const replayIdx = argv.indexOf("--replay");
+  const replayPath = replayIdx >= 0 ? argv[replayIdx + 1] : undefined;
+  const suffixIdx = argv.indexOf("--run-suffix");
+  const runSuffix = suffixIdx >= 0 ? argv[suffixIdx + 1]! : DEFAULT_RUN_SUFFIX;
+  const limitIdx = argv.indexOf("--limit");
+  const limit = limitIdx >= 0 ? parseInt(argv[limitIdx + 1]!, 10) : 5;
+  const modelIdx = argv.indexOf("--model");
+  const model = modelIdx >= 0 ? argv[modelIdx + 1]! : DEFAULT_MODEL;
+  const judgeIdx = argv.indexOf("--judge");
+  const judge = judgeIdx >= 0 ? argv[judgeIdx + 1]! : DEFAULT_JUDGE;
+  const toolsIdx = argv.indexOf("--tools");
+  const toolsRaw = toolsIdx >= 0 ? argv[toolsIdx + 1]! : DEFAULT_TOOLS;
+  const toolsMode: ToolsMode = toolsRaw === "sparql-only"
+    ? "sparql-only"
+    : "search+sparql";
+  const maxStepsIdx = argv.indexOf("--max-steps");
+  const maxSteps = maxStepsIdx >= 0 ? parseInt(argv[maxStepsIdx + 1]!, 10) : 8;
+  const traceIdIdx = argv.indexOf("--trace-id");
+  const traceId = traceIdIdx >= 0 ? argv[traceIdIdx + 1] : undefined;
+  return {
+    checkOnly,
+    replayPath,
+    runSuffix,
+    limit,
+    model,
+    judge,
+    toolsMode,
+    maxSteps,
+    traceId,
+  };
 }
 
 function createModel(modelAlias: string): {
-  model: ReturnType<ReturnType<typeof createOpenAI>>
-  modelConfig: ModelConfig
-  providerOptions?: Record<string, unknown>
+  model: ReturnType<ReturnType<typeof createOpenAI>>;
+  modelConfig: ModelConfig;
+  providerOptions?: Record<string, unknown>;
 } {
-  const modelConfig = getModelConfig(modelAlias)
+  const modelConfig = getModelConfig(modelAlias);
   switch (modelConfig.provider) {
     case "google":
       return {
         model: createGoogleGenerativeAI({ apiKey: config.googleApiKey })(
-          modelConfig.id
+          modelConfig.id,
         ) as unknown as ReturnType<ReturnType<typeof createOpenAI>>,
         modelConfig,
-      }
+      };
     case "deepseek":
       return {
         model: createOpenAI({
@@ -191,20 +203,22 @@ function createModel(modelAlias: string): {
           baseURL: config.deepseekBaseUrl,
         })(modelConfig.id),
         modelConfig,
-      }
+      };
     default:
-      throw new Error(`Unsupported model provider for agent smoke: ${modelConfig.provider}`)
+      throw new Error(
+        `Unsupported model provider for agent smoke: ${modelConfig.provider}`,
+      );
   }
 }
 
 async function checkBilling(modelAlias: string): Promise<void> {
-  const { model } = createModel(modelAlias)
+  const { model } = createModel(modelAlias);
   await generateText({
     model,
     prompt: "Reply with exactly: ok",
     maxOutputTokens: 8,
-  })
-  logger.success(`Billing check passed (${modelAlias})`)
+  });
+  logger.success(`Billing check passed (${modelAlias})`);
 }
 
 function buildPlainTools(
@@ -212,9 +226,9 @@ function buildPlainTools(
   provider: WorldsProvider,
   containerTag: string,
   toolsMode: ToolsMode,
-  traceSink: (entry: Record<string, unknown>) => void
+  traceSink: (entry: Record<string, unknown>) => void,
 ): PlainTool[] {
-  const tools: PlainTool[] = []
+  const tools: PlainTool[] = [];
 
   if (toolsMode === "search+sparql") {
     tools.push({
@@ -224,24 +238,34 @@ function buildPlainTools(
         'Query: short keywords and person names (e.g. "Caroline LGBTQ support group"). ' +
         "Returns messages with Session Date, Speaker, and relevance score when available.",
       zodSchema: z.object({
-        query: z.string().describe("Short search query with names and keywords"),
+        query: z.string().describe(
+          "Short search query with names and keywords",
+        ),
       }),
       jsonSchema: {
         type: "object",
         properties: {
-          query: { type: "string", description: "Short search query with names and keywords" },
+          query: {
+            type: "string",
+            description: "Short search query with names and keywords",
+          },
         },
         required: ["query"],
       },
       execute: async (args) => {
-        const started = Date.now()
-        const results = await provider.search(String(args.query), { containerTag })
+        const started = Date.now();
+        const results = await provider.search(String(args.query), {
+          containerTag,
+        });
         // Cap the payload: the model only needs the top hits, and a 100-result
         // blob previously triggered a socket-closed error on the next API call.
-        const payload = { resultCount: results.length, results: results.slice(0, 10) }
-        return payload
+        const payload = {
+          resultCount: results.length,
+          results: results.slice(0, 10),
+        };
+        return payload;
       },
-    })
+    });
   }
 
   tools.push({
@@ -256,45 +280,55 @@ function buildPlainTools(
     }),
     jsonSchema: {
       type: "object",
-      properties: { query: { type: "string", description: "SPARQL SELECT query, LIMIT ≤ 20" } },
+      properties: {
+        query: {
+          type: "string",
+          description: "SPARQL SELECT query, LIMIT ≤ 20",
+        },
+      },
       required: ["query"],
     },
     execute: async (args) => {
-      const started = Date.now()
-      const client = await getClient()
-      const response = await client.sparql({ query: String(args.query) })
-      const payload =
-        response.kind === "select"
-          ? {
-              kind: response.kind,
-              bindings: response.data.results.bindings.slice(0, 20),
-              totalBindings: response.data.results.bindings.length,
-            }
-          : { kind: response.kind, response }
-      return payload
+      const started = Date.now();
+      const client = await getClient();
+      const response = await client.sparql({ query: String(args.query) });
+      const payload = response.kind === "select"
+        ? {
+          kind: response.kind,
+          bindings: response.data.results.bindings.slice(0, 20),
+          totalBindings: response.data.results.bindings.length,
+        }
+        : { kind: response.kind, response };
+      return payload;
     },
-  })
+  });
 
-  return tools
+  return tools;
 }
 
-function toAiSdkTools(plainTools: PlainTool[]): Record<string, ReturnType<typeof tool>> {
-  const out: Record<string, ReturnType<typeof tool>> = {}
+function toAiSdkTools(
+  plainTools: PlainTool[],
+): Record<string, ReturnType<typeof tool>> {
+  const out: Record<string, ReturnType<typeof tool>> = {};
   for (const t of plainTools) {
     out[t.name] = tool({
       description: t.description,
       inputSchema: t.zodSchema,
       execute: (args) => t.execute(args as Record<string, unknown>),
-    })
+    });
   }
-  return out
+  return out;
 }
 
 function toOpenAiTools(plainTools: PlainTool[]) {
   return plainTools.map((t) => ({
     type: "function" as const,
-    function: { name: t.name, description: t.description, parameters: t.jsonSchema },
-  }))
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.jsonSchema,
+    },
+  }));
 }
 
 /**
@@ -305,36 +339,39 @@ function toOpenAiTools(plainTools: PlainTool[]) {
  * out. Usage is accumulated across calls.
  */
 async function runDeepSeekAgentLoop(opts: {
-  modelId: string
-  system: string
-  prompt: string
-  tools: PlainTool[]
-  maxSteps: number
-  maxTokens?: number
+  modelId: string;
+  system: string;
+  prompt: string;
+  tools: PlainTool[];
+  maxSteps: number;
+  maxTokens?: number;
   onToolCall: (tc: {
-    name: string
-    args: Record<string, unknown>
-    ms: number
-    result: unknown
-  }) => void
-}): Promise<{ text: string; inputTokens: number; outputTokens: number; steps: number }> {
+    name: string;
+    args: Record<string, unknown>;
+    ms: number;
+    result: unknown;
+  }) => void;
+}): Promise<
+  { text: string; inputTokens: number; outputTokens: number; steps: number }
+> {
   const messages: Record<string, unknown>[] = [
     { role: "system", content: opts.system },
     { role: "user", content: opts.prompt },
-  ]
-  const openaiTools = toOpenAiTools(opts.tools)
-  const toolByName = new Map(opts.tools.map((t) => [t.name, t]))
-  const baseUrl = (config.deepseekBaseUrl || "https://api.deepseek.com").replace(/\/$/, "")
-  const url = `${baseUrl}/chat/completions`
+  ];
+  const openaiTools = toOpenAiTools(opts.tools);
+  const toolByName = new Map(opts.tools.map((t) => [t.name, t]));
+  const baseUrl = (config.deepseekBaseUrl || "https://api.deepseek.com")
+    .replace(/\/$/, "");
+  const url = `${baseUrl}/chat/completions`;
 
-  let inputTokens = 0
-  let outputTokens = 0
-  let lastText = ""
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let lastText = "";
 
   const call = async (): Promise<{
-    message: Record<string, any>
-    finishReason: string
-    usage: { prompt_tokens?: number; completion_tokens?: number }
+    message: Record<string, any>;
+    finishReason: string;
+    usage: { prompt_tokens?: number; completion_tokens?: number };
   }> => {
     const res = await fetch(url, {
       method: "POST",
@@ -353,86 +390,114 @@ async function runDeepSeekAgentLoop(opts: {
         thinking: { type: "disabled" },
         stream: false,
       }),
-    })
-    const data = await res.json()
+    });
+    const data = await res.json();
     if (!res.ok) {
       throw new Error(
-        `DeepSeek agent loop HTTP ${res.status}: ${JSON.stringify(data).slice(0, 400)}`
-      )
+        `DeepSeek agent loop HTTP ${res.status}: ${
+          JSON.stringify(data).slice(0, 400)
+        }`,
+      );
     }
-    const choice = data.choices?.[0]
-    if (!choice)
+    const choice = data.choices?.[0];
+    if (!choice) {
       throw new Error(
-        `DeepSeek agent loop: no choice in response: ${JSON.stringify(data).slice(0, 400)}`
-      )
+        `DeepSeek agent loop: no choice in response: ${
+          JSON.stringify(data).slice(0, 400)
+        }`,
+      );
+    }
     return {
       message: choice.message ?? {},
       finishReason: choice.finish_reason ?? "",
       usage: data.usage ?? {},
-    }
-  }
+    };
+  };
 
   for (let step = 0; step < opts.maxSteps; step++) {
-    const { message, finishReason, usage } = await call()
-    inputTokens += usage.prompt_tokens ?? 0
-    outputTokens += usage.completion_tokens ?? 0
-    lastText = typeof message.content === "string" ? message.content : ""
+    const { message, finishReason, usage } = await call();
+    inputTokens += usage.prompt_tokens ?? 0;
+    outputTokens += usage.completion_tokens ?? 0;
+    lastText = typeof message.content === "string" ? message.content : "";
 
-    const toolCalls: Array<{ id: string; name: string; args: Record<string, unknown> }> = []
+    const toolCalls: Array<
+      { id: string; name: string; args: Record<string, unknown> }
+    > = [];
     for (const tc of message.tool_calls ?? []) {
-      let parsed: Record<string, unknown> = {}
+      let parsed: Record<string, unknown> = {};
       try {
-        parsed = JSON.parse(tc.function?.arguments ?? "{}")
+        parsed = JSON.parse(tc.function?.arguments ?? "{}");
       } catch {
-        parsed = {}
+        parsed = {};
       }
-      toolCalls.push({ id: tc.id, name: tc.function?.name ?? "", args: parsed })
+      toolCalls.push({
+        id: tc.id,
+        name: tc.function?.name ?? "",
+        args: parsed,
+      });
     }
 
     if (toolCalls.length === 0) {
       // Model answered without tools (finish_reason "stop" or exhausted).
-      return { text: lastText, inputTokens, outputTokens, steps: step + 1 }
+      return { text: lastText, inputTokens, outputTokens, steps: step + 1 };
     }
 
     messages.push({
       role: "assistant",
       content: message.content ?? null,
       tool_calls: message.tool_calls,
-    })
+    });
 
     for (const tc of toolCalls) {
-      const t = toolByName.get(tc.name)
+      const t = toolByName.get(tc.name);
       if (!t) {
         messages.push({
           role: "tool",
           tool_call_id: tc.id,
-          content: JSON.stringify({ success: false, error: `Unknown tool: ${tc.name}` }),
-        })
-        continue
+          content: JSON.stringify({
+            success: false,
+            error: `Unknown tool: ${tc.name}`,
+          }),
+        });
+        continue;
       }
-      const started = Date.now()
-      let result: unknown
+      const started = Date.now();
+      let result: unknown;
       try {
-        result = await t.execute(tc.args)
+        result = await t.execute(tc.args);
       } catch (err) {
-        result = { success: false, error: err instanceof Error ? err.message : String(err) }
+        result = {
+          success: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
       }
-      const ms = Date.now() - started
-      opts.onToolCall({ name: tc.name, args: tc.args, ms, result })
-      messages.push({ role: "tool", tool_call_id: tc.id, content: JSON.stringify(result) })
+      const ms = Date.now() - started;
+      opts.onToolCall({ name: tc.name, args: tc.args, ms, result });
+      messages.push({
+        role: "tool",
+        tool_call_id: tc.id,
+        content: JSON.stringify(result),
+      });
     }
   }
 
-  return { text: lastText, inputTokens, outputTokens, steps: opts.maxSteps }
+  return { text: lastText, inputTokens, outputTokens, steps: opts.maxSteps };
 }
 
 async function loadQuestions(
-  limit: number
+  limit: number,
 ): Promise<
-  Array<{ questionId: string; question: string; questionType: string; groundTruth: string }>
+  Array<
+    {
+      questionId: string;
+      question: string;
+      questionType: string;
+      groundTruth: string;
+    }
+  >
 > {
-  const benchmark = new LoCoMoBenchmark()
-  await benchmark.load()
+  const benchmark = new LoCoMoBenchmark();
+  await benchmark.load();
   return benchmark
     .getQuestions()
     .filter((q) => /^conv-26-q\d+$/.test(q.questionId))
@@ -442,22 +507,22 @@ async function loadQuestions(
       question: q.question,
       questionType: q.questionType,
       groundTruth: benchmark.getGroundTruth(q.questionId),
-    }))
+    }));
 }
 
 async function runAgentForQuestion(opts: {
-  modelAlias: string
-  judge: DeepSeekJudge | null
-  provider: WorldsProvider
-  getClient: () => Promise<WorldsSdkInterface>
-  questionId: string
-  question: string
-  questionType: string
-  containerTag: string
-  groundTruth?: string
-  toolsMode: ToolsMode
-  maxSteps: number
-  tracePath: string
+  modelAlias: string;
+  judge: DeepSeekJudge | null;
+  provider: WorldsProvider;
+  getClient: () => Promise<WorldsSdkInterface>;
+  questionId: string;
+  question: string;
+  questionType: string;
+  containerTag: string;
+  groundTruth?: string;
+  toolsMode: ToolsMode;
+  maxSteps: number;
+  tracePath: string;
 }): Promise<TraceRecord> {
   const record: TraceRecord = {
     questionId: opts.questionId,
@@ -468,27 +533,26 @@ async function runAgentForQuestion(opts: {
     toolsMode: opts.toolsMode,
     model: opts.modelAlias,
     startedAt: new Date().toISOString(),
-  }
+  };
 
-  const toolTrace: Record<string, unknown>[] = []
+  const toolTrace: Record<string, unknown>[] = [];
   const plainTools = buildPlainTools(
     opts.getClient,
     opts.provider,
     opts.containerTag,
     opts.toolsMode,
-    (e) => toolTrace.push(e)
-  )
-  const modelConfig = getModelConfig(opts.modelAlias)
-  const systemPrompt =
-    opts.toolsMode === "sparql-only"
-      ? buildSparqlOnlySystemPrompt()
-      : buildSearchSparqlSystemPrompt()
+    (e) => toolTrace.push(e),
+  );
+  const modelConfig = getModelConfig(opts.modelAlias);
+  const systemPrompt = opts.toolsMode === "sparql-only"
+    ? buildSparqlOnlySystemPrompt()
+    : buildSearchSparqlSystemPrompt();
 
   try {
-    let finalText = ""
-    let inputTokens = 0
-    let outputTokens = 0
-    let steps = 0
+    let finalText = "";
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let steps = 0;
 
     if (modelConfig.provider === "deepseek") {
       const loop = await runDeepSeekAgentLoop({
@@ -498,16 +562,21 @@ async function runAgentForQuestion(opts: {
         tools: plainTools,
         maxSteps: opts.maxSteps,
         onToolCall: (tc) => {
-          const entry = { tool: tc.name, args: tc.args, ms: tc.ms, result: tc.result }
-          toolTrace.push(entry as unknown as Record<string, unknown>)
+          const entry = {
+            tool: tc.name,
+            args: tc.args,
+            ms: tc.ms,
+            result: tc.result,
+          };
+          toolTrace.push(entry as unknown as Record<string, unknown>);
         },
-      })
-      finalText = loop.text
-      inputTokens = loop.inputTokens
-      outputTokens = loop.outputTokens
-      steps = loop.steps
+      });
+      finalText = loop.text;
+      inputTokens = loop.inputTokens;
+      outputTokens = loop.outputTokens;
+      steps = loop.steps;
     } else {
-      const { model, providerOptions } = createModel(opts.modelAlias)
+      const { model, providerOptions } = createModel(opts.modelAlias);
       const result = await generateText({
         model,
         system: systemPrompt,
@@ -516,24 +585,29 @@ async function runAgentForQuestion(opts: {
         stopWhen: stepCountIs(opts.maxSteps),
         ...(providerOptions ? { providerOptions } : {}),
         onStepFinish: (step) => {
-          record.steps = [...(record.steps ?? []), step]
+          record.steps = [...(record.steps ?? []), step];
         },
-      })
-      finalText = result.text
+      });
+      finalText = result.text;
       const usage = (
-        result as unknown as { usage?: { inputTokens?: number; outputTokens?: number } }
-      ).usage
-      inputTokens = usage?.inputTokens ?? 0
-      outputTokens = usage?.outputTokens ?? 0
-      steps = record.steps?.length ?? 0
+        result as unknown as {
+          usage?: { inputTokens?: number; outputTokens?: number };
+        }
+      ).usage;
+      inputTokens = usage?.inputTokens ?? 0;
+      outputTokens = usage?.outputTokens ?? 0;
+      steps = record.steps?.length ?? 0;
     }
 
-    record.finalText = finalText
-    record.toolCalls = toolTrace
-    record.steps = [...(record.steps ?? []), { loopSteps: steps, toolCalls: toolTrace.length }]
-    record.inputTokens = inputTokens
-    record.outputTokens = outputTokens
-    record.finishedAt = new Date().toISOString()
+    record.finalText = finalText;
+    record.toolCalls = toolTrace;
+    record.steps = [...(record.steps ?? []), {
+      loopSteps: steps,
+      toolCalls: toolTrace.length,
+    }];
+    record.inputTokens = inputTokens;
+    record.outputTokens = outputTokens;
+    record.finishedAt = new Date().toISOString();
 
     if (opts.judge && opts.groundTruth) {
       try {
@@ -542,70 +616,86 @@ async function runAgentForQuestion(opts: {
           questionType: opts.questionType,
           groundTruth: opts.groundTruth,
           hypothesis: finalText,
-        })
-        record.judgeLabel = jr.label
-        record.judgeScore = jr.score
-        record.judgeExplanation = jr.explanation
+        });
+        record.judgeLabel = jr.label;
+        record.judgeScore = jr.score;
+        record.judgeExplanation = jr.explanation;
       } catch (err) {
-        logger.warn(`[${opts.questionId}] judge failed: ${err}`)
+        logger.warn(`[${opts.questionId}] judge failed: ${err}`);
       }
     }
 
-    await appendFile(opts.tracePath, `${JSON.stringify(record)}\n`)
-    return record
+    await appendFile(opts.tracePath, `${JSON.stringify(record)}\n`);
+    return record;
   } catch (err) {
-    record.error = String(err)
-    record.toolCalls = toolTrace
-    record.finishedAt = new Date().toISOString()
-    await appendFile(opts.tracePath, `${JSON.stringify(record)}\n`)
-    throw err
+    record.error = String(err);
+    record.toolCalls = toolTrace;
+    record.finishedAt = new Date().toISOString();
+    await appendFile(opts.tracePath, `${JSON.stringify(record)}\n`);
+    throw err;
   }
 }
 
 async function main() {
-  const { checkOnly, replayPath, runSuffix, limit, model, judge, toolsMode, maxSteps, traceId } =
-    parseArgs(process.argv.slice(2))
+  const {
+    checkOnly,
+    replayPath,
+    runSuffix,
+    limit,
+    model,
+    judge,
+    toolsMode,
+    maxSteps,
+    traceId,
+  } = parseArgs(process.argv.slice(2));
 
   if (checkOnly) {
-    await checkBilling(model)
-    return
+    await checkBilling(model);
+    return;
   }
 
   if (replayPath) {
     logger.info(
-      `Replay mode: ${replayPath} (LLM-only re-run not yet wired — use live run to capture traces)`
-    )
-    return
+      `Replay mode: ${replayPath} (LLM-only re-run not yet wired — use live run to capture traces)`,
+    );
+    return;
   }
 
-  await mkdir(TRACE_DIR, { recursive: true })
-  const runId = `agent-${toolsMode}-${runSuffix}-${new Date().toISOString().replace(/[:.]/g, "-")}`
-  const tracePath = join(TRACE_DIR, `${traceId ? traceId : runId}.jsonl`)
-  const latestPath = join(TRACE_DIR, "latest.jsonl")
+  await mkdir(TRACE_DIR, { recursive: true });
+  const runId = `agent-${toolsMode}-${runSuffix}-${
+    new Date().toISOString().replace(/[:.]/g, "-")
+  }`;
+  const tracePath = join(TRACE_DIR, `${traceId ? traceId : runId}.jsonl`);
+  const latestPath = join(TRACE_DIR, "latest.jsonl");
 
-  await checkBilling(model)
+  await checkBilling(model);
 
   const judgeInstance = await (async () => {
-    const j = new DeepSeekJudge()
-    await j.initialize({ ...getJudgeConfig("deepseek"), model: judge })
-    return j
-  })()
+    const j = new DeepSeekJudge();
+    await j.initialize({ ...getJudgeConfig("deepseek"), model: judge });
+    return j;
+  })();
 
-  const provider = new WorldsProvider()
-  await provider.initialize({ apiKey: config.googleApiKey || config.deepseekApiKey })
+  const provider = new WorldsProvider();
+  await provider.initialize({
+    apiKey: config.googleApiKey || config.deepseekApiKey,
+  });
 
-  const getClient = (containerTag: string) => provider.getClientForContainer(containerTag)
+  const getClient = (containerTag: string) =>
+    provider.getClientForContainer(containerTag);
 
-  const questions = await loadQuestions(limit)
+  const questions = await loadQuestions(limit);
   logger.info(
-    `Running ${questions.length} agent questions (tools: ${toolsMode}, model: ${model}, judge: ${judge}) → ${tracePath}`
-  )
+    `Running ${questions.length} agent questions (tools: ${toolsMode}, model: ${model}, judge: ${judge}) → ${tracePath}`,
+  );
 
-  let ok = 0
-  const results: TraceRecord[] = []
+  let ok = 0;
+  const results: TraceRecord[] = [];
   for (const q of questions) {
-    const containerTag = `${q.questionId}-${runSuffix}`
-    logger.info(`[${q.questionId}] ${q.question.slice(0, 60)}… (${containerTag})`)
+    const containerTag = `${q.questionId}-${runSuffix}`;
+    logger.info(
+      `[${q.questionId}] ${q.question.slice(0, 60)}… (${containerTag})`,
+    );
     try {
       const record = await runAgentForQuestion({
         modelAlias: model,
@@ -620,12 +710,12 @@ async function main() {
         toolsMode,
         maxSteps,
         tracePath,
-      })
-      results.push(record)
-      ok++
-      logger.success(`[${q.questionId}] ${record.judgeLabel ?? "no-judge"}`)
+      });
+      results.push(record);
+      ok++;
+      logger.success(`[${q.questionId}] ${record.judgeLabel ?? "no-judge"}`);
     } catch (err) {
-      logger.error(`[${q.questionId}] failed: ${err}`)
+      logger.error(`[${q.questionId}] failed: ${err}`);
       results.push({
         questionId: q.questionId,
         question: q.question,
@@ -636,12 +726,12 @@ async function main() {
         model,
         startedAt: new Date().toISOString(),
         error: String(err),
-      })
-      break
+      });
+      break;
     }
   }
 
-  await writeFile(latestPath, await readFile(tracePath, "utf8"))
+  await writeFile(latestPath, await readFile(tracePath, "utf8"));
 
   const summary = {
     runId,
@@ -652,17 +742,22 @@ async function main() {
     completed: ok,
     total: questions.length,
     results,
-  }
-  const summaryPath = join(TRACE_DIR, `summary-${traceId ? traceId : runId}.json`)
-  await writeFile(summaryPath, JSON.stringify(summary, null, 2))
+  };
+  const summaryPath = join(
+    TRACE_DIR,
+    `summary-${traceId ? traceId : runId}.json`,
+  );
+  await writeFile(summaryPath, JSON.stringify(summary, null, 2));
 
-  const correct = results.filter((r) => r.judgeLabel === "correct").length
-  logger.info(`Traces: ${tracePath} (also ${latestPath})`)
-  logger.info(`Summary: ${summaryPath}`)
-  logger.info(`Completed ${ok}/${questions.length} | judge correct ${correct}/${results.length}`)
+  const correct = results.filter((r) => r.judgeLabel === "correct").length;
+  logger.info(`Traces: ${tracePath} (also ${latestPath})`);
+  logger.info(`Summary: ${summaryPath}`);
+  logger.info(
+    `Completed ${ok}/${questions.length} | judge correct ${correct}/${results.length}`,
+  );
 }
 
 main().catch((err) => {
-  logger.error(String(err))
-  process.exit(1)
-})
+  logger.error(String(err));
+  process.exit(1);
+});

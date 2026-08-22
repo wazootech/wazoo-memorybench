@@ -1,11 +1,11 @@
 export interface ModelConfig {
-  id: string
-  provider: "openai" | "anthropic" | "google" | "deepseek"
-  displayName: string
-  supportsTemperature: boolean
-  defaultTemperature: number
-  maxTokensParam: "maxTokens" | "max_completion_tokens" | "maxOutputTokens"
-  defaultMaxTokens: number
+  id: string;
+  provider: "openai" | "anthropic" | "google" | "deepseek";
+  displayName: string;
+  supportsTemperature: boolean;
+  defaultTemperature: number;
+  maxTokensParam: "maxTokens" | "max_completion_tokens" | "maxOutputTokens";
+  defaultMaxTokens: number;
 }
 
 export const MODEL_CONFIGS: Record<string, ModelConfig> = {
@@ -245,21 +245,21 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     maxTokensParam: "maxTokens",
     defaultMaxTokens: 1000,
   },
-}
+};
 
-export const DEFAULT_ANSWERING_MODEL = "gpt-4o"
+export const DEFAULT_ANSWERING_MODEL = "gpt-4o";
 export const DEFAULT_JUDGE_MODELS: Record<string, string> = {
   openai: "gpt-4o",
   anthropic: "sonnet-4",
   google: "gemini-2.5-flash",
   deepseek: "deepseek-v4-flash",
-}
+};
 
 export function getModelConfig(alias: string): ModelConfig {
-  const lowerAlias = alias.toLowerCase()
+  const lowerAlias = alias.toLowerCase();
 
   if (MODEL_CONFIGS[lowerAlias]) {
-    return MODEL_CONFIGS[lowerAlias]
+    return MODEL_CONFIGS[lowerAlias];
   }
 
   // Fallback for unknown models - try to infer from prefix
@@ -277,7 +277,7 @@ export function getModelConfig(alias: string): ModelConfig {
       defaultTemperature: 1,
       maxTokensParam: "max_completion_tokens",
       defaultMaxTokens: 1000,
-    }
+    };
   }
   if (alias.startsWith("gpt-")) {
     return {
@@ -288,7 +288,7 @@ export function getModelConfig(alias: string): ModelConfig {
       defaultTemperature: 0,
       maxTokensParam: "maxTokens",
       defaultMaxTokens: 1000,
-    }
+    };
   }
   if (alias.startsWith("claude-")) {
     return {
@@ -299,7 +299,7 @@ export function getModelConfig(alias: string): ModelConfig {
       defaultTemperature: 0,
       maxTokensParam: "maxTokens",
       defaultMaxTokens: 1000,
-    }
+    };
   }
   if (alias.startsWith("gemini-3")) {
     return {
@@ -310,7 +310,7 @@ export function getModelConfig(alias: string): ModelConfig {
       defaultTemperature: 1,
       maxTokensParam: "maxTokens",
       defaultMaxTokens: 1000,
-    }
+    };
   }
   if (alias.startsWith("gemini-")) {
     return {
@@ -321,7 +321,7 @@ export function getModelConfig(alias: string): ModelConfig {
       defaultTemperature: 0,
       maxTokensParam: "maxTokens",
       defaultMaxTokens: 1000,
-    }
+    };
   }
   if (alias.startsWith("deepseek-")) {
     return {
@@ -332,7 +332,7 @@ export function getModelConfig(alias: string): ModelConfig {
       defaultTemperature: 0,
       maxTokensParam: "maxTokens",
       defaultMaxTokens: 1000,
-    }
+    };
   }
 
   // Default fallback
@@ -344,32 +344,34 @@ export function getModelConfig(alias: string): ModelConfig {
     defaultTemperature: 0,
     maxTokensParam: "maxTokens",
     defaultMaxTokens: 1000,
-  }
+  };
 }
 
 // Legacy exports for backward compatibility
-export const MODEL_ALIASES = MODEL_CONFIGS
+export const MODEL_ALIASES = MODEL_CONFIGS;
 
 export function resolveModel(alias: string): ModelConfig {
-  return getModelConfig(alias)
+  return getModelConfig(alias);
 }
 
 export function getModelId(alias: string): string {
-  return getModelConfig(alias).id
+  return getModelConfig(alias).id;
 }
 
-export function getModelProvider(alias: string): "openai" | "anthropic" | "google" | "deepseek" {
-  return getModelConfig(alias).provider
+export function getModelProvider(
+  alias: string,
+): "openai" | "anthropic" | "google" | "deepseek" {
+  return getModelConfig(alias).provider;
 }
 
 export function listAvailableModels(): string[] {
-  return Object.keys(MODEL_CONFIGS)
+  return Object.keys(MODEL_CONFIGS);
 }
 
 export function listModelsByProvider(
-  provider: "openai" | "anthropic" | "google" | "deepseek"
+  provider: "openai" | "anthropic" | "google" | "deepseek",
 ): string[] {
   return Object.entries(MODEL_CONFIGS)
     .filter(([_, config]) => config.provider === provider)
-    .map(([alias]) => alias)
+    .map(([alias]) => alias);
 }

@@ -1,16 +1,20 @@
-import { runCommand } from "./commands/run"
-import { compareCommand } from "./commands/compare"
-import { ingestCommand } from "./commands/ingest"
-import { searchCommand } from "./commands/search"
-import { testQuestionCommand } from "./commands/test-question"
-import { statusCommand } from "./commands/status"
-import { listQuestionsCommand } from "./commands/list-questions"
-import { showFailuresCommand } from "./commands/show-failures"
-import { serveCommand } from "./commands/serve"
-import { cacheClearCommand } from "./commands/cache-clear"
-import { getAvailableProviders } from "../providers"
-import { getAvailableBenchmarks } from "../benchmarks"
-import { listModelsByProvider, MODEL_ALIASES, DEFAULT_ANSWERING_MODEL } from "../utils/models"
+import { runCommand } from "./commands/run";
+import { compareCommand } from "./commands/compare";
+import { ingestCommand } from "./commands/ingest";
+import { searchCommand } from "./commands/search";
+import { testQuestionCommand } from "./commands/test-question";
+import { statusCommand } from "./commands/status";
+import { listQuestionsCommand } from "./commands/list-questions";
+import { showFailuresCommand } from "./commands/show-failures";
+import { serveCommand } from "./commands/serve";
+import { cacheClearCommand } from "./commands/cache-clear";
+import { getAvailableProviders } from "../providers";
+import { getAvailableBenchmarks } from "../benchmarks";
+import {
+  DEFAULT_ANSWERING_MODEL,
+  listModelsByProvider,
+  MODEL_ALIASES,
+} from "../utils/models";
 
 function printHelp(): void {
   console.log(`
@@ -52,7 +56,7 @@ Run 'bun run src/index.ts help <topic>' for more details:
   help providers   - List all memory providers
   help models      - List all available models
   help benchmarks  - List all benchmarks
-`)
+`);
 }
 
 function printProvidersHelp(): void {
@@ -90,14 +94,14 @@ Usage:
   -p filesystem     Use file-based memory (CLAUDE.md style)
   -p rag            Use hybrid RAG memory (OpenClaw/QMD style)
   -p worlds         Use Wazoo Worlds graph memory provider
-`)
+`);
 }
 
 function printModelsHelp(): void {
-  const openaiModels = listModelsByProvider("openai")
-  const anthropicModels = listModelsByProvider("anthropic")
-  const googleModels = listModelsByProvider("google")
-  const deepseekModels = listModelsByProvider("deepseek")
+  const openaiModels = listModelsByProvider("openai");
+  const anthropicModels = listModelsByProvider("anthropic");
+  const googleModels = listModelsByProvider("google");
+  const deepseekModels = listModelsByProvider("deepseek");
 
   console.log(`
 Available Models
@@ -107,34 +111,34 @@ Models can be used for both -j (judge) and -m (answering model).
 Provider is auto-detected from the model name.
 
 OpenAI Models:
-`)
+`);
   for (const alias of openaiModels) {
-    const info = MODEL_ALIASES[alias]
-    console.log(`  ${alias.padEnd(20)} ${info.displayName} (${info.id})`)
+    const info = MODEL_ALIASES[alias];
+    console.log(`  ${alias.padEnd(20)} ${info.displayName} (${info.id})`);
   }
 
   console.log(`
 Anthropic Models:
-`)
+`);
   for (const alias of anthropicModels) {
-    const info = MODEL_ALIASES[alias]
-    console.log(`  ${alias.padEnd(20)} ${info.displayName} (${info.id})`)
+    const info = MODEL_ALIASES[alias];
+    console.log(`  ${alias.padEnd(20)} ${info.displayName} (${info.id})`);
   }
 
   console.log(`
 Google Models:
-`)
+`);
   for (const alias of googleModels) {
-    const info = MODEL_ALIASES[alias]
-    console.log(`  ${alias.padEnd(20)} ${info.displayName} (${info.id})`)
+    const info = MODEL_ALIASES[alias];
+    console.log(`  ${alias.padEnd(20)} ${info.displayName} (${info.id})`);
   }
 
   console.log(`
 DeepSeek Models (OpenAI-compatible, requires DEEPSEEK_API_KEY):
-`)
+`);
   for (const alias of deepseekModels) {
-    const info = MODEL_ALIASES[alias]
-    console.log(`  ${alias.padEnd(20)} ${info.displayName} (${info.id})`)
+    const info = MODEL_ALIASES[alias];
+    console.log(`  ${alias.padEnd(20)} ${info.displayName} (${info.id})`);
   }
 
   console.log(`
@@ -145,7 +149,7 @@ Examples:
   -m opus-4.5            Use Claude Opus 4.5 for answering
 
 Default answering model: ${DEFAULT_ANSWERING_MODEL}
-`)
+`);
 }
 
 function printBenchmarksHelp(): void {
@@ -171,60 +175,60 @@ Usage:
   -b locomo        Run LoCoMo benchmark
   -b longmemeval   Run LongMemEval benchmark
   -b convomem      Run ConvoMem benchmark
-`)
+`);
 }
 
 export async function cli(args: string[]): Promise<void> {
-  const command = args[0]
-  const commandArgs = args.slice(1)
+  const command = args[0];
+  const commandArgs = args.slice(1);
 
   switch (command) {
     case "run":
-      await runCommand(commandArgs)
-      break
+      await runCommand(commandArgs);
+      break;
     case "compare":
-      await compareCommand(commandArgs)
-      break
+      await compareCommand(commandArgs);
+      break;
     case "ingest":
-      await ingestCommand(commandArgs)
-      break
+      await ingestCommand(commandArgs);
+      break;
     case "search":
-      await searchCommand(commandArgs)
-      break
+      await searchCommand(commandArgs);
+      break;
     case "test":
-      await testQuestionCommand(commandArgs)
-      break
+      await testQuestionCommand(commandArgs);
+      break;
     case "status":
-      await statusCommand(commandArgs)
-      break
+      await statusCommand(commandArgs);
+      break;
     case "list-questions":
-      await listQuestionsCommand(commandArgs)
-      break
+      await listQuestionsCommand(commandArgs);
+      break;
     case "show-failures":
-      await showFailuresCommand(commandArgs)
-      break
+      await showFailuresCommand(commandArgs);
+      break;
     case "serve":
-      await serveCommand(commandArgs)
-      break
+      await serveCommand(commandArgs);
+      break;
     case "cache-clear":
-      await cacheClearCommand()
-      break
+      await cacheClearCommand();
+      break;
     case "help":
     case "--help":
     case "-h":
-      const topic = commandArgs[0]
+      const topic = commandArgs[0];
       if (topic === "providers") {
-        printProvidersHelp()
+        printProvidersHelp();
       } else if (topic === "models") {
-        printModelsHelp()
+        printModelsHelp();
       } else if (topic === "benchmarks") {
-        printBenchmarksHelp()
+        printBenchmarksHelp();
       } else {
-        printHelp()
+        printHelp();
       }
-      break
+      break;
     default:
-      printHelp()
-      break
+      printHelp();
+      break;
   }
 }

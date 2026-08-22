@@ -1,9 +1,9 @@
-import { createOpenAI } from "@ai-sdk/openai"
-import { generateText } from "ai"
-import type { UnifiedSession } from "../types/unified"
+import { createOpenAI } from "@ai-sdk/openai";
+import { generateText } from "ai";
+import type { UnifiedSession } from "../types/unified";
 
 /** Model used for memory extraction (fast, cheap, sufficient for extraction) */
-const EXTRACTION_MODEL = "gpt-4o-mini"
+const EXTRACTION_MODEL = "gpt-4o-mini";
 
 /**
  * Build an extraction prompt that instructs the LLM to extract structured
@@ -11,20 +11,19 @@ const EXTRACTION_MODEL = "gpt-4o-mini"
  * with categorized facts, events, preferences, and relationships.
  */
 export function buildExtractionPrompt(session: UnifiedSession): string {
-  const speakerA = (session.metadata?.speakerA as string) || "Speaker A"
-  const speakerB = (session.metadata?.speakerB as string) || "Speaker B"
-  const date =
-    (session.metadata?.formattedDate as string) ||
+  const speakerA = (session.metadata?.speakerA as string) || "Speaker A";
+  const speakerB = (session.metadata?.speakerB as string) || "Speaker B";
+  const date = (session.metadata?.formattedDate as string) ||
     (session.metadata?.date as string) ||
-    "Unknown date"
+    "Unknown date";
 
   const conversation = session.messages
     .map((m) => {
-      const speaker = m.speaker || m.role
-      const ts = m.timestamp ? ` [${m.timestamp}]` : ""
-      return `${speaker}${ts}: ${m.content}`
+      const speaker = m.speaker || m.role;
+      const ts = m.timestamp ? ` [${m.timestamp}]` : "";
+      return `${speaker}${ts}: ${m.content}`;
     })
-    .join("\n")
+    .join("\n");
 
   return `You are a memory extraction system. Read the following conversation and extract all important, memorable information into structured markdown. This will be stored as a memory file for later retrieval.
 
@@ -61,7 +60,7 @@ Rules:
 - Do not invent or infer information that was not stated
 - If a section would be empty, omit it entirely
 - Keep each bullet concise but complete (one line per fact)
-- Resolve relative date references ("yesterday", "last week") to absolute dates using the conversation date when possible`
+- Resolve relative date references ("yesterday", "last week") to absolute dates using the conversation date when possible`;
 }
 
 /**
@@ -70,20 +69,22 @@ Rules:
  */
 export async function extractMemories(
   openai: ReturnType<typeof createOpenAI>,
-  session: UnifiedSession
+  session: UnifiedSession,
 ): Promise<string> {
-  const prompt = buildExtractionPrompt(session)
+  const prompt = buildExtractionPrompt(session);
 
   const params: Record<string, unknown> = {
     model: openai(EXTRACTION_MODEL),
     prompt,
     maxTokens: 2000,
     temperature: 0,
-  }
+  };
 
-  const { text } = await generateText(params as Parameters<typeof generateText>[0])
+  const { text } = await generateText(
+    params as Parameters<typeof generateText>[0],
+  );
 
-  return text.trim()
+  return text.trim();
 }
 
 /**
@@ -91,20 +92,21 @@ export async function extractMemories(
  * assertions (schema:Person, schema:Event, schema:Action, schema:MedicalCondition,
  * schema:Organization, relationships, preferences) from a conversation session.
  */
-export function buildDomainRdfExtractionPrompt(session: UnifiedSession): string {
-  const speakerA = (session.metadata?.speakerA as string) || "Speaker A"
-  const speakerB = (session.metadata?.speakerB as string) || "Speaker B"
-  const date =
-    (session.metadata?.formattedDate as string) ||
+export function buildDomainRdfExtractionPrompt(
+  session: UnifiedSession,
+): string {
+  const speakerA = (session.metadata?.speakerA as string) || "Speaker A";
+  const speakerB = (session.metadata?.speakerB as string) || "Speaker B";
+  const date = (session.metadata?.formattedDate as string) ||
     (session.metadata?.date as string) ||
-    "Unknown date"
+    "Unknown date";
 
   const conversation = session.messages
     .map((m) => {
-      const speaker = m.speaker || m.role
-      return `${speaker}: ${m.content}`
+      const speaker = m.speaker || m.role;
+      return `${speaker}: ${m.content}`;
     })
-    .join("\n")
+    .join("\n");
 
   return `You are a domain-driven knowledge graph extraction system. Read the conversation and extract every distinct entity, event, action, medical condition, job/occupation, preference, and relationship into a structured JSON array.
 
@@ -132,5 +134,5 @@ Rules:
 - Each claimText MUST be a complete, self-contained searchable sentence (e.g., "${speakerA} waited over a year for their asylum application to get approved.")
 - Classify real-world entities accurately (e.g., asylum application -> Event, nurse/engineer -> Person/Job, hospital visit -> Event/MedicalCondition)
 
-Respond with ONLY a JSON array. No markdown fences, no commentary.`
+Respond with ONLY a JSON array. No markdown fences, no commentary.`;
 }

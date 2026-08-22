@@ -1,6 +1,7 @@
 # Provider Template Reference
 
-This document contains the code templates used to generate provider adapters for MemoryBench.
+This document contains the code templates used to generate provider adapters for
+MemoryBench.
 
 ## Provider Interface
 
@@ -8,20 +9,28 @@ All providers must implement this interface from `src/types/provider.ts`:
 
 ```typescript
 interface Provider {
-  name: string
-  prompts?: ProviderPrompts
-  concurrency?: ConcurrencyConfig
-  initialize(config: ProviderConfig): Promise<void>
-  ingest(sessions: UnifiedSession[], options: IngestOptions): Promise<IngestResult>
-  awaitIndexing(result: IngestResult, containerTag: string, onProgress?: IndexingProgressCallback): Promise<void>
-  search(query: string, options: SearchOptions): Promise<unknown[]>
-  clear(containerTag: string): Promise<void>
+  name: string;
+  prompts?: ProviderPrompts;
+  concurrency?: ConcurrencyConfig;
+  initialize(config: ProviderConfig): Promise<void>;
+  ingest(
+    sessions: UnifiedSession[],
+    options: IngestOptions,
+  ): Promise<IngestResult>;
+  awaitIndexing(
+    result: IngestResult,
+    containerTag: string,
+    onProgress?: IndexingProgressCallback,
+  ): Promise<void>;
+  search(query: string, options: SearchOptions): Promise<unknown[]>;
+  clear(containerTag: string): Promise<void>;
 }
 ```
 
 ## Main Provider Template
 
-Use this template when generating a provider adapter. Replace placeholders with actual values from code discovery.
+Use this template when generating a provider adapter. Replace placeholders with
+actual values from code discovery.
 
 ### File: `memorybench/src/providers/{providerName}/index.ts`
 
@@ -311,7 +320,7 @@ export type ProviderName =
   | "zep"
   | "filesystem"
   | "rag"
-  | "{providerName}"  // ADD THIS
+  | "{providerName}"; // ADD THIS
 ```
 
 ### 2. Update `memorybench/src/providers/index.ts`
@@ -379,10 +388,10 @@ Adjust based on the user's API rate limits:
 
 ```typescript
 concurrency = {
-  default: 10,    // Conservative for limited APIs
-  ingest: 20,     // Can usually handle more writes
-  indexing: 50,   // Status checks are usually lightweight
-}
+  default: 10, // Conservative for limited APIs
+  ingest: 20, // Can usually handle more writes
+  indexing: 50, // Status checks are usually lightweight
+};
 ```
 
 Or for robust APIs:
@@ -392,7 +401,7 @@ concurrency = {
   default: 50,
   ingest: 100,
   indexing: 200,
-}
+};
 ```
 
 ## Example: Supermemory Provider
@@ -401,60 +410,63 @@ For reference, here's a real implementation:
 
 ```typescript
 export class SupermemoryProvider implements Provider {
-  name = "supermemory"
-  prompts = SUPERMEMORY_PROMPTS
+  name = "supermemory";
+  prompts = SUPERMEMORY_PROMPTS;
   concurrency = {
     default: 50,
     ingest: 100,
     indexing: 200,
-  }
-  private client: Supermemory | null = null
+  };
+  private client: Supermemory | null = null;
 
   async initialize(config: ProviderConfig): Promise<void> {
     this.client = new Supermemory({
       apiKey: config.apiKey,
-      baseURL: "http://localhost:8787"
-    })
-    logger.info(`Initialized Supermemory provider`)
+      baseURL: "http://localhost:8787",
+    });
+    logger.info(`Initialized Supermemory provider`);
   }
 
-  async ingest(sessions: UnifiedSession[], options: IngestOptions): Promise<IngestResult> {
-    if (!this.client) throw new Error("Provider not initialized")
-    const documentIds: string[] = []
+  async ingest(
+    sessions: UnifiedSession[],
+    options: IngestOptions,
+  ): Promise<IngestResult> {
+    if (!this.client) throw new Error("Provider not initialized");
+    const documentIds: string[] = [];
 
     for (const session of sessions) {
       const sessionStr = JSON.stringify(session.messages)
         .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
+        .replace(/>/g, "&gt;");
 
       const content = session.metadata?.formattedDate
         ? `Date: ${session.metadata.formattedDate}\n\nSession:\n${sessionStr}`
-        : `Session:\n${sessionStr}`
+        : `Session:\n${sessionStr}`;
 
       const response = await this.client.add({
         content,
         containerTag: options.containerTag,
         metadata: { sessionId: session.sessionId },
-      })
+      });
 
-      documentIds.push(response.id)
-      await new Promise(r => setTimeout(r, 100))
+      documentIds.push(response.id);
+      await new Promise((r) => setTimeout(r, 100));
     }
 
-    return { documentIds }
+    return { documentIds };
   }
 
   async search(query: string, options: SearchOptions): Promise<unknown[]> {
-    if (!this.client) throw new Error("Provider not initialized")
+    if (!this.client) throw new Error("Provider not initialized");
 
     const response = await this.client.search.memories({
       q: query,
       containerTag: options.containerTag,
       limit: 30,
       threshold: options.threshold || 0.3,
-    })
+    });
 
-    return response.results || []
+    return response.results || [];
   }
 }
 ```

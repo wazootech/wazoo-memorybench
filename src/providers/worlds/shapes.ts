@@ -1,8 +1,8 @@
-import { Parser, Store } from "n3"
+import { Parser, Store } from "n3";
 // @ts-ignore - rdf-validate-shacl lacks bundle typings
-import SHACLValidator from "rdf-validate-shacl"
-import { RDF, SCHEMA, PROV, WORLDS, XSD, TURTLE_PREFIXES } from "./ontology"
-import { logger } from "../../utils/logger"
+import SHACLValidator from "rdf-validate-shacl";
+import { PROV, RDF, SCHEMA, TURTLE_PREFIXES, WORLDS, XSD } from "./ontology";
+import { logger } from "../../utils/logger";
 
 /**
  * SHACL shapes for validating the session/message graph produced by
@@ -26,7 +26,7 @@ worlds:SessionShape a sh:NodeShape ;
     sh:minCount 1 ;
     sh:node worlds:MessageShape ;
   ] .
-`
+`;
 
 export const MESSAGE_SHAPE = `
 ${TURTLE_PREFIXES}
@@ -56,7 +56,7 @@ worlds:MessageShape a sh:NodeShape ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
   ] .
-`
+`;
 
 export const CLAIM_SHAPE = `
 ${TURTLE_PREFIXES}
@@ -68,7 +68,7 @@ worlds:ClaimShape a sh:NodeShape ;
     sh:path prov:wasDerivedFrom ;
     sh:minCount 1 ;
   ] .
-`
+`;
 
 export const PERSON_SHAPE = `
 ${TURTLE_PREFIXES}
@@ -80,7 +80,7 @@ worlds:PersonShape a sh:NodeShape ;
     sh:path schema:name ;
     sh:minCount 1 ;
   ] .
-`
+`;
 
 export const EVENT_SHAPE = `
 ${TURTLE_PREFIXES}
@@ -96,7 +96,7 @@ worlds:EventShape a sh:NodeShape ;
     sh:path prov:wasDerivedFrom ;
     sh:minCount 1 ;
   ] .
-`
+`;
 
 export const ACTION_SHAPE = `
 ${TURTLE_PREFIXES}
@@ -112,24 +112,29 @@ worlds:ActionShape a sh:NodeShape ;
     sh:path prov:wasDerivedFrom ;
     sh:minCount 1 ;
   ] .
-`
+`;
 
-export const DOMAINS_SHACL_SHAPE = [CLAIM_SHAPE, PERSON_SHAPE, EVENT_SHAPE, ACTION_SHAPE].join("\n")
+export const DOMAINS_SHACL_SHAPE = [
+  CLAIM_SHAPE,
+  PERSON_SHAPE,
+  EVENT_SHAPE,
+  ACTION_SHAPE,
+].join("\n");
 
 export interface ValidationResult {
-  valid: boolean
-  errors: string[]
+  valid: boolean;
+  errors: string[];
 }
 
 /**
  * Parses a Turtle string into an N3 Quad Store.
  */
 export function parseTurtleToDataset(turtle: string): Store {
-  const parser = new Parser()
-  const store = new Store()
-  const quads = parser.parse(turtle)
-  store.addQuads(quads)
-  return store
+  const parser = new Parser();
+  const store = new Store();
+  const quads = parser.parse(turtle);
+  store.addQuads(quads);
+  return store;
 }
 
 /**
@@ -138,34 +143,35 @@ export function parseTurtleToDataset(turtle: string): Store {
  */
 export async function validateShaclGraph(
   dataTurtle: string,
-  shapeTurtle: string = DOMAINS_SHACL_SHAPE
+  shapeTurtle: string = DOMAINS_SHACL_SHAPE,
 ): Promise<ValidationResult> {
-  if (!dataTurtle.trim()) return { valid: true, errors: [] }
+  if (!dataTurtle.trim()) return { valid: true, errors: [] };
 
   try {
-    const dataStore = parseTurtleToDataset(dataTurtle)
-    const shapeStore = parseTurtleToDataset(shapeTurtle)
+    const dataStore = parseTurtleToDataset(dataTurtle);
+    const shapeStore = parseTurtleToDataset(shapeTurtle);
 
-    const validator = new SHACLValidator(shapeStore, { maxErrors: 10 })
-    const report = await validator.validate(dataStore)
+    const validator = new SHACLValidator(shapeStore, { maxErrors: 10 });
+    const report = await validator.validate(dataStore);
 
-    const errors: string[] = []
+    const errors: string[] = [];
     if (!report.conforms) {
       for (const result of report.results || []) {
-        const message = result.message?.[0]?.value || "SHACL constraint violation"
-        const path = result.path?.value || "unknown path"
-        const focusNode = result.focusNode?.value || "unknown node"
-        errors.push(`SHACL violation at ${focusNode} [${path}]: ${message}`)
+        const message = result.message?.[0]?.value ||
+          "SHACL constraint violation";
+        const path = result.path?.value || "unknown path";
+        const focusNode = result.focusNode?.value || "unknown node";
+        errors.push(`SHACL violation at ${focusNode} [${path}]: ${message}`);
       }
     }
 
     return {
       valid: Boolean(report.conforms),
       errors,
-    }
+    };
   } catch (err) {
-    logger.warn(`SHACL engine evaluation warning: ${err}`)
-    return { valid: true, errors: [String(err)] }
+    logger.warn(`SHACL engine evaluation warning: ${err}`);
+    return { valid: true, errors: [String(err)] };
   }
 }
 
@@ -174,47 +180,49 @@ export async function validateShaclGraph(
  * shapes. Lightweight fallback check verifying required triples.
  */
 export function validateGraph(turtle: string): ValidationResult {
-  const errors: string[] = []
+  const errors: string[] = [];
 
-  const hasSession = turtle.includes(SCHEMA.Conversation)
+  const hasSession = turtle.includes(SCHEMA.Conversation);
   if (!hasSession) {
-    errors.push(`Missing session type: expected <${SCHEMA.Conversation}>`)
+    errors.push(`Missing session type: expected <${SCHEMA.Conversation}>`);
   }
 
-  const hasDateCreated = turtle.includes(SCHEMA.dateCreated)
+  const hasDateCreated = turtle.includes(SCHEMA.dateCreated);
   if (!hasDateCreated) {
-    errors.push(`Missing session date: expected <${SCHEMA.dateCreated}>`)
+    errors.push(`Missing session date: expected <${SCHEMA.dateCreated}>`);
   }
 
-  const hasMessage = turtle.includes(SCHEMA.Message)
+  const hasMessage = turtle.includes(SCHEMA.Message);
   if (!hasMessage) {
-    errors.push(`Missing message type: expected <${SCHEMA.Message}>`)
+    errors.push(`Missing message type: expected <${SCHEMA.Message}>`);
   }
 
-  const hasText = turtle.includes(SCHEMA.text)
+  const hasText = turtle.includes(SCHEMA.text);
   if (!hasText) {
-    errors.push(`Missing message text: expected <${SCHEMA.text}>`)
+    errors.push(`Missing message text: expected <${SCHEMA.text}>`);
   }
 
-  const hasPosition = turtle.includes(SCHEMA.position)
+  const hasPosition = turtle.includes(SCHEMA.position);
   if (!hasPosition) {
-    errors.push(`Missing message position: expected <${SCHEMA.position}>`)
+    errors.push(`Missing message position: expected <${SCHEMA.position}>`);
   }
 
-  const hasAuthor = turtle.includes(SCHEMA.author)
+  const hasAuthor = turtle.includes(SCHEMA.author);
   if (!hasAuthor) {
-    errors.push(`Missing message author: expected <${SCHEMA.author}>`)
+    errors.push(`Missing message author: expected <${SCHEMA.author}>`);
   }
 
-  const hasHasPart = turtle.includes(SCHEMA.hasPart)
+  const hasHasPart = turtle.includes(SCHEMA.hasPart);
   if (!hasHasPart) {
-    errors.push(`Missing session-to-message link: expected <${SCHEMA.hasPart}>`)
+    errors.push(
+      `Missing session-to-message link: expected <${SCHEMA.hasPart}>`,
+    );
   }
 
-  const hasProvenance = turtle.includes(PROV.wasGeneratedBy)
+  const hasProvenance = turtle.includes(PROV.wasGeneratedBy);
   if (!hasProvenance) {
-    errors.push(`Missing provenance link: expected <${PROV.wasGeneratedBy}>`)
+    errors.push(`Missing provenance link: expected <${PROV.wasGeneratedBy}>`);
   }
 
-  return { valid: errors.length === 0, errors }
+  return { valid: errors.length === 0, errors };
 }

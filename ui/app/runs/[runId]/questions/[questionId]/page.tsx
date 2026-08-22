@@ -1,34 +1,34 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { useParams } from "next/navigation"
-import { Highlight, themes } from "prism-react-renderer"
-import { getQuestion } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { Highlight, themes } from "prism-react-renderer";
+import { getQuestion } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export default function QuestionDetailPage() {
-  const params = useParams()
-  const runId = decodeURIComponent(params.runId as string)
-  const questionId = decodeURIComponent(params.questionId as string)
+  const params = useParams();
+  const runId = decodeURIComponent(params.runId as string);
+  const questionId = decodeURIComponent(params.questionId as string);
 
-  const [question, setQuestion] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [question, setQuestion] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadQuestion()
-  }, [runId, questionId])
+    loadQuestion();
+  }, [runId, questionId]);
 
   async function loadQuestion() {
     try {
-      setLoading(true)
-      const data = await getQuestion(runId, questionId)
-      setQuestion(data)
+      setLoading(true);
+      const data = await getQuestion(runId, questionId);
+      setQuestion(data);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load question")
+      setError(e instanceof Error ? e.message : "Failed to load question");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -37,28 +37,31 @@ export default function QuestionDetailPage() {
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
-    )
+    );
   }
 
   if (error || !question) {
     return (
       <div className="text-center py-12">
         <p className="text-status-error">{error || "Question not found"}</p>
-        <Link href={`/runs/${encodeURIComponent(runId)}`} className="btn btn-secondary mt-4">
+        <Link
+          href={`/runs/${encodeURIComponent(runId)}`}
+          className="btn btn-secondary mt-4"
+        >
           Back to run
         </Link>
       </div>
-    )
+    );
   }
 
-  const isCorrect = question.phases?.evaluate?.label === "correct"
-  const searchResults =
-    question.searchResultsFile?.results || question.phases?.search?.results || []
-  const containerTag = question.containerTag || ""
+  const isCorrect = question.phases?.evaluate?.label === "correct";
+  const searchResults = question.searchResultsFile?.results ||
+    question.phases?.search?.results || [];
+  const containerTag = question.containerTag || "";
 
   const copyContainerTag = () => {
-    navigator.clipboard.writeText(containerTag)
-  }
+    navigator.clipboard.writeText(containerTag);
+  };
 
   return (
     <div className="max-w-4xl animate-fade-in">
@@ -83,36 +86,53 @@ export default function QuestionDetailPage() {
         <div
           className={cn(
             "w-10 h-10 rounded flex items-center justify-center flex-shrink-0",
-            isCorrect ? "bg-status-success/20" : "bg-status-error/20"
+            isCorrect ? "bg-status-success/20" : "bg-status-error/20",
           )}
         >
-          {isCorrect ? (
-            <svg
-              className="w-6 h-6 text-status-success"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            <svg
-              className="w-6 h-6 text-status-error"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          )}
+          {isCorrect
+            ? (
+              <svg
+                className="w-6 h-6 text-status-success"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            )
+            : (
+              <svg
+                className="w-6 h-6 text-status-error"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            )}
         </div>
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-xl font-display font-semibold text-text-primary">{questionId}</h1>
+            <h1 className="text-xl font-display font-semibold text-text-primary">
+              {questionId}
+            </h1>
             <span className="badge badge-neutral">{question.questionType}</span>
-            <span className={cn("badge", isCorrect ? "badge-success" : "badge-error")}>
+            <span
+              className={cn(
+                "badge",
+                isCorrect ? "badge-success" : "badge-error",
+              )}
+            >
               {isCorrect ? "Correct" : "Incorrect"}
             </span>
           </div>
@@ -144,26 +164,34 @@ export default function QuestionDetailPage() {
 
       {/* Question */}
       <div className="card mb-4 overflow-hidden">
-        <h3 className="text-xs text-text-muted uppercase tracking-wide mb-2">Question</h3>
+        <h3 className="text-xs text-text-muted uppercase tracking-wide mb-2">
+          Question
+        </h3>
         <p className="text-text-primary break-words">{question.question}</p>
       </div>
 
       {/* Answer Comparison */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div className="card overflow-hidden min-w-0">
-          <h3 className="text-xs text-text-muted uppercase tracking-wide mb-2">Ground Truth</h3>
-          <p className="text-text-primary font-medium break-words">{question.groundTruth}</p>
+          <h3 className="text-xs text-text-muted uppercase tracking-wide mb-2">
+            Ground Truth
+          </h3>
+          <p className="text-text-primary font-medium break-words">
+            {question.groundTruth}
+          </p>
         </div>
         <div
           className={cn(
             "card border overflow-hidden min-w-0",
             isCorrect
               ? "border-status-success/30 bg-status-success/5"
-              : "border-status-error/30 bg-status-error/5"
+              : "border-status-error/30 bg-status-error/5",
           )}
         >
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-xs text-text-muted uppercase tracking-wide">Model Answer</h3>
+            <h3 className="text-xs text-text-muted uppercase tracking-wide">
+              Model Answer
+            </h3>
             {question.phases?.answer?.promptTokens != null && (
               <span className="text-xs text-text-muted font-mono">
                 {question.phases.answer.promptTokens.toLocaleString()} tokens
@@ -173,7 +201,7 @@ export default function QuestionDetailPage() {
           <p
             className={cn(
               "font-medium break-words",
-              isCorrect ? "text-status-success" : "text-status-error"
+              isCorrect ? "text-status-success" : "text-status-error",
             )}
           >
             {question.phases?.answer?.hypothesis || "No answer generated"}
@@ -187,7 +215,9 @@ export default function QuestionDetailPage() {
           <h3 className="text-xs text-text-muted uppercase tracking-wide mb-2">
             Evaluation Explanation
           </h3>
-          <p className="text-text-secondary break-words">{question.phases.evaluate.explanation}</p>
+          <p className="text-text-secondary break-words">
+            {question.phases.evaluate.explanation}
+          </p>
         </div>
       )}
 
@@ -196,32 +226,47 @@ export default function QuestionDetailPage() {
         <h3 className="text-xs text-text-muted uppercase tracking-wide mb-3">
           Retrieved Context ({searchResults.length} results)
         </h3>
-        {searchResults.length === 0 ? (
-          <p className="text-text-muted text-sm">No search results available</p>
-        ) : (
-          <div className="space-y-3">
-            {searchResults.map((result: any, idx: number) => {
-              const jsonStr = JSON.stringify(result, null, 2)
-              return (
-                <div
-                  key={idx}
-                  className="bg-[#0d0d0d] rounded border border-border overflow-hidden"
-                >
-                  <div className="flex items-center justify-between px-3 py-2 bg-bg-elevated border-b border-border">
-                    <span className="text-xs font-mono text-accent">Result #{idx + 1}</span>
-                    {result.score !== undefined && (
-                      <span className="text-xs text-text-muted">
-                        Score:{" "}
-                        {typeof result.score === "number" ? result.score.toFixed(3) : result.score}
+        {searchResults.length === 0
+          ? (
+            <p className="text-text-muted text-sm">
+              No search results available
+            </p>
+          )
+          : (
+            <div className="space-y-3">
+              {searchResults.map((result: any, idx: number) => {
+                const jsonStr = JSON.stringify(result, null, 2);
+                return (
+                  <div
+                    key={idx}
+                    className="bg-[#0d0d0d] rounded border border-border overflow-hidden"
+                  >
+                    <div className="flex items-center justify-between px-3 py-2 bg-bg-elevated border-b border-border">
+                      <span className="text-xs font-mono text-accent">
+                        Result #{idx + 1}
                       </span>
-                    )}
-                  </div>
-                  <Highlight theme={themes.oneDark} code={jsonStr} language="json">
-                    {({ style, tokens, getLineProps, getTokenProps }) => (
-                      <pre
-                        className="p-3 overflow-x-auto text-sm max-h-[300px] overflow-y-auto"
-                        style={{ ...style, background: "transparent", margin: 0 }}
-                      >
+                      {result.score !== undefined && (
+                        <span className="text-xs text-text-muted">
+                          Score: {typeof result.score === "number"
+                            ? result.score.toFixed(3)
+                            : result.score}
+                        </span>
+                      )}
+                    </div>
+                    <Highlight
+                      theme={themes.oneDark}
+                      code={jsonStr}
+                      language="json"
+                    >
+                      {({ style, tokens, getLineProps, getTokenProps }) => (
+                        <pre
+                          className="p-3 overflow-x-auto text-sm max-h-[300px] overflow-y-auto"
+                          style={{
+                            ...style,
+                            background: "transparent",
+                            margin: 0,
+                          }}
+                        >
                         {tokens.map((line, i) => (
                           <div key={i} {...getLineProps({ line })}>
                             {line.map((token, key) => (
@@ -229,15 +274,15 @@ export default function QuestionDetailPage() {
                             ))}
                           </div>
                         ))}
-                      </pre>
-                    )}
-                  </Highlight>
-                </div>
-              )
-            })}
-          </div>
-        )}
+                        </pre>
+                      )}
+                    </Highlight>
+                  </div>
+                );
+              })}
+            </div>
+          )}
       </div>
     </div>
-  )
+  );
 }

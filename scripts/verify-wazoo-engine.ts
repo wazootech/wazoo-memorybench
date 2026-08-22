@@ -9,18 +9,18 @@
  *
  * Usage: bun run scripts/verify-wazoo-engine.ts
  */
-import { createClient } from "@libsql/client"
-import { createLibsqlWorldsSdk } from "@worlds/libsql"
-import { join } from "node:path"
+import { createClient } from "@libsql/client";
+import { createLibsqlWorldsSdk } from "@worlds/libsql";
+import { join } from "node:path";
 
-const DB_DIR = join(process.cwd(), "data", "providers", "worlds")
+const DB_DIR = join(process.cwd(), "data", "providers", "worlds");
 const DB_NAMES = [
   "conv-26-q0-smoke-ds-001",
   "conv-26-q1-smoke-ds-001",
   "conv-26-q2-smoke-ds-001",
   "conv-26-q3-smoke-ds-001",
   "conv-26-q4-smoke-ds-001",
-]
+];
 
 // The exact query surface the harness runs (from worlds/index.ts):
 // - queryFactClaims: entity + keyword FILTER/CONTAINS with OPTIONAL + UNION
@@ -51,7 +51,8 @@ const QUERIES = {
     LIMIT 8`.trim(),
 
   countTypes: `
-    SELECT ?type (COUNT(*) AS ?n) WHERE { ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?type } GROUP BY ?type ORDER BY DESC(?n) LIMIT 20`.trim(),
+    SELECT ?type (COUNT(*) AS ?n) WHERE { ?s <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> ?type } GROUP BY ?type ORDER BY DESC(?n) LIMIT 20`
+    .trim(),
 
   personEvents: `
     PREFIX schema: <http://schema.org/>
@@ -64,99 +65,128 @@ const QUERIES = {
   askTest: `
     PREFIX schema: <http://schema.org/>
     ASK { ?s a schema:Person }`.trim(),
-}
+};
 
 async function main(): Promise<void> {
-  let totalBindings = 0
-  let askTrue = 0
-  const timings: Record<string, number[]> = {}
+  let totalBindings = 0;
+  let askTrue = 0;
+  const timings: Record<string, number[]> = {};
 
   for (const dbName of DB_NAMES) {
-    const dbPath = join(DB_DIR, `${dbName}.db`)
-    const libsqlClient = createClient({ url: `file:${dbPath}` })
+    const dbPath = join(DB_DIR, `${dbName}.db`);
+    const libsqlClient = createClient({ url: `file:${dbPath}` });
     const client = await createLibsqlWorldsSdk({
       client: libsqlClient,
       // Wazoo engine — the #25 swap under test (wired by createLibsqlWorldsSdk).
-    })
+    });
 
-    console.log(`\n=== ${dbName} ===`)
+    console.log(`\n=== ${dbName} ===`);
 
     // 1. ASK kind parity
     {
-      const t0 = performance.now()
-      const res = await client.sparql({ query: QUERIES.askTest })
-      const dt = performance.now() - t0
-      ;(timings.ask ??= []).push(dt)
-      if (res.kind !== "ask") throw new Error(`Expected ask, got ${res.kind}`)
-      if (res.data.boolean) askTrue++
-      console.log(`  ASK → boolean=${res.data.boolean} (${dt.toFixed(1)}ms)`)
+      const t0 = performance.now();
+      const res = await client.sparql({ query: QUERIES.askTest });
+      const dt = performance.now() - t0;
+      (timings.ask ??= []).push(dt);
+      if (res.kind !== "ask") throw new Error(`Expected ask, got ${res.kind}`);
+      if (res.data.boolean) askTrue++;
+      console.log(`  ASK → boolean=${res.data.boolean} (${dt.toFixed(1)}ms)`);
     }
 
     // 2. COUNT/GROUP BY discovery query
     {
-      const t0 = performance.now()
-      const res = await client.sparql({ query: QUERIES.countTypes })
-      const dt = performance.now() - t0
-      ;(timings.countTypes ??= []).push(dt)
-      if (res.kind !== "select") throw new Error(`Expected select, got ${res.kind}`)
-      if (!res.data.head.vars.includes("type") || !res.data.head.vars.includes("n")) {
-        throw new Error(`Unexpected head vars: ${res.data.head.vars.join(",")}`)
+      const t0 = performance.now();
+      const res = await client.sparql({ query: QUERIES.countTypes });
+      const dt = performance.now() - t0;
+      (timings.countTypes ??= []).push(dt);
+      if (res.kind !== "select") {
+        throw new Error(`Expected select, got ${res.kind}`);
+      }
+      if (
+        !res.data.head.vars.includes("type") ||
+        !res.data.head.vars.includes("n")
+      ) {
+        throw new Error(
+          `Unexpected head vars: ${res.data.head.vars.join(",")}`,
+        );
       }
       console.log(
-        `  COUNT/GROUP BY → ${res.data.results.bindings.length} types (${dt.toFixed(1)}ms)`
-      )
+        `  COUNT/GROUP BY → ${res.data.results.bindings.length} types (${
+          dt.toFixed(1)
+        }ms)`,
+      );
       for (const b of res.data.results.bindings.slice(0, 3)) {
-        console.log(`    ${b.type?.value}: ${b.n?.value}`)
+        console.log(`    ${b.type?.value}: ${b.n?.value}`);
       }
     }
 
     // 3. Person→Event multi-hop join with OPTIONAL + LIMIT
     {
-      const t0 = performance.now()
-      const res = await client.sparql({ query: QUERIES.personEvents })
-      const dt = performance.now() - t0
-      ;(timings.personEvents ??= []).push(dt)
-      if (res.kind !== "select") throw new Error(`Expected select, got ${res.kind}`)
-      totalBindings += res.data.results.bindings.length
+      const t0 = performance.now();
+      const res = await client.sparql({ query: QUERIES.personEvents });
+      const dt = performance.now() - t0;
+      (timings.personEvents ??= []).push(dt);
+      if (res.kind !== "select") {
+        throw new Error(`Expected select, got ${res.kind}`);
+      }
+      totalBindings += res.data.results.bindings.length;
       console.log(
-        `  Person→Event join → ${res.data.results.bindings.length} rows (${dt.toFixed(1)}ms)`
-      )
+        `  Person→Event join → ${res.data.results.bindings.length} rows (${
+          dt.toFixed(1)
+        }ms)`,
+      );
       for (const b of res.data.results.bindings.slice(0, 2)) {
-        console.log(`    ${b.personName?.value} — ${b.eventName?.value} (${b.date?.value ?? "?"})`)
+        console.log(
+          `    ${b.personName?.value} — ${b.eventName?.value} (${
+            b.date?.value ?? "?"
+          })`,
+        );
       }
     }
 
     // 4. Fact-claim FILTER/CONTAINS + UNION + OPTIONAL (the harness's query)
     {
-      const t0 = performance.now()
-      const res = await client.sparql({ query: QUERIES.factClaimQuery("caroline") })
-      const dt = performance.now() - t0
-      ;(timings.factClaims ??= []).push(dt)
-      if (res.kind !== "select") throw new Error(`Expected select, got ${res.kind}`)
-      totalBindings += res.data.results.bindings.length
+      const t0 = performance.now();
+      const res = await client.sparql({
+        query: QUERIES.factClaimQuery("caroline"),
+      });
+      const dt = performance.now() - t0;
+      (timings.factClaims ??= []).push(dt);
+      if (res.kind !== "select") {
+        throw new Error(`Expected select, got ${res.kind}`);
+      }
+      totalBindings += res.data.results.bindings.length;
       console.log(
-        `  Fact-claim FILTER/CONTAINS → ${res.data.results.bindings.length} rows (${dt.toFixed(1)}ms)`
-      )
+        `  Fact-claim FILTER/CONTAINS → ${res.data.results.bindings.length} rows (${
+          dt.toFixed(1)
+        }ms)`,
+      );
       for (const b of res.data.results.bindings.slice(0, 2)) {
-        console.log(`    ${b.claimText?.value?.slice(0, 60)}`)
+        console.log(`    ${b.claimText?.value?.slice(0, 60)}`);
       }
     }
 
-    libsqlClient.close()
+    libsqlClient.close();
   }
 
-  console.log(`\n=== totals ===`)
-  console.log(`ASK true on ${askTrue}/${DB_NAMES.length} DBs`)
-  console.log(`Select bindings across ${DB_NAMES.length} DBs: ${totalBindings}`)
+  console.log(`\n=== totals ===`);
+  console.log(`ASK true on ${askTrue}/${DB_NAMES.length} DBs`);
+  console.log(
+    `Select bindings across ${DB_NAMES.length} DBs: ${totalBindings}`,
+  );
   for (const [name, times] of Object.entries(timings)) {
-    const avg = times.reduce((a, b) => a + b, 0) / times.length
-    const max = Math.max(...times)
-    console.log(`  ${name}: avg ${avg.toFixed(1)}ms, max ${max.toFixed(1)}ms (n=${times.length})`)
+    const avg = times.reduce((a, b) => a + b, 0) / times.length;
+    const max = Math.max(...times);
+    console.log(
+      `  ${name}: avg ${avg.toFixed(1)}ms, max ${
+        max.toFixed(1)
+      }ms (n=${times.length})`,
+    );
   }
-  console.log(`\nAll parity checks passed ✓`)
+  console.log(`\nAll parity checks passed ✓`);
 }
 
 main().catch((err) => {
-  console.error("VERIFY FAILED:", err)
-  process.exit(1)
-})
+  console.error("VERIFY FAILED:", err);
+  process.exit(1);
+});

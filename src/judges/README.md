@@ -6,11 +6,14 @@ LLM-as-judge implementations. Each judge implements the `Judge` interface.
 
 ```typescript
 interface Judge {
-    name: string
-    initialize(config: JudgeConfig): Promise<void>
-    evaluate(input: JudgeInput): Promise<JudgeResult>
-    getPromptForQuestionType(questionType: string, providerPrompts?: ProviderPrompts): string
-    getModel(): LanguageModel | null
+  name: string;
+  initialize(config: JudgeConfig): Promise<void>;
+  evaluate(input: JudgeInput): Promise<JudgeResult>;
+  getPromptForQuestionType(
+    questionType: string,
+    providerPrompts?: ProviderPrompts,
+  ): string;
+  getModel(): LanguageModel | null;
 }
 ```
 
@@ -23,12 +26,17 @@ interface Judge {
 5. Add default model in `src/utils/models.ts` (`DEFAULT_JUDGE_MODELS`)
 
 **Required returns:**
+
 - `initialize()` - Set up client with API key and model
-- `evaluate()` - Return `{ score: 0|1, label: "correct"|"incorrect", explanation: string }`
+- `evaluate()` - Return
+  `{ score: 0|1, label: "correct"|"incorrect", explanation: string }`
 - `getPromptForQuestionType()` - Return prompt string for question type
-- `getModel()` - Return the initialized LanguageModel, or `null` for judges that talk to their provider through a non-SDK client (e.g. DeepSeek's raw-fetch client). Retrieval-metrics evaluation skips when null.
+- `getModel()` - Return the initialized LanguageModel, or `null` for judges that
+  talk to their provider through a non-SDK client (e.g. DeepSeek's raw-fetch
+  client). Retrieval-metrics evaluation skips when null.
 
 **Use these helpers from `./base.ts`:**
+
 - `buildJudgePrompt(input)` - Builds full prompt from JudgeInput
 - `parseJudgeResponse(text)` - Extracts JudgeResult from LLM response
 
@@ -38,25 +46,26 @@ Add model config in `src/utils/models.ts`:
 
 ```typescript
 interface ModelConfig {
-    id: string
-    provider: "openai" | "anthropic" | "google"
-    displayName: string
-    supportsTemperature: boolean
-    defaultTemperature: number
-    maxTokensParam: "maxTokens" | "max_completion_tokens"
-    defaultMaxTokens: number
+  id: string;
+  provider: "openai" | "anthropic" | "google";
+  displayName: string;
+  supportsTemperature: boolean;
+  defaultTemperature: number;
+  maxTokensParam: "maxTokens" | "max_completion_tokens";
+  defaultMaxTokens: number;
 }
 ```
 
 ## Provider-Specific Prompts
 
-Providers can override judge prompts. See [providers/README.md](../providers/README.md#custom-prompts).
+Providers can override judge prompts. See
+[providers/README.md](../providers/README.md#custom-prompts).
 
 ## Existing Judges
 
-| Judge | SDK | Default Model |
-|-------|-----|---------------|
-| `openai` | `@ai-sdk/openai` | gpt-4o |
-| `anthropic` | `@ai-sdk/anthropic` | sonnet-4 |
-| `google` | `@ai-sdk/google` | gemini-2.5-flash |
-| `deepseek` | raw-fetch `DeepSeekClient` (`src/utils/deepseek-client.ts`) | deepseek-v4-flash |
+| Judge       | SDK                                                         | Default Model     |
+| ----------- | ----------------------------------------------------------- | ----------------- |
+| `openai`    | `@ai-sdk/openai`                                            | gpt-4o            |
+| `anthropic` | `@ai-sdk/anthropic`                                         | sonnet-4          |
+| `google`    | `@ai-sdk/google`                                            | gemini-2.5-flash  |
+| `deepseek`  | raw-fetch `DeepSeekClient` (`src/utils/deepseek-client.ts`) | deepseek-v4-flash |
