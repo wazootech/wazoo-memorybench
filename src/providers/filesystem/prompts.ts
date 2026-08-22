@@ -1,37 +1,35 @@
-import type { ProviderPrompts } from "../../types/prompts";
+import type { ProviderPrompts } from "../../types/prompts"
 
 interface FilesystemResult {
-  sessionId: string;
-  content: string;
-  score: number;
-  matchCount: number;
+  sessionId: string
+  content: string
+  score: number
+  matchCount: number
 }
 
 function buildFilesystemContext(context: unknown[]): string {
-  const results = context as FilesystemResult[];
+  const results = context as FilesystemResult[]
 
   if (results.length === 0) {
-    return "No relevant memory files were found.";
+    return "No relevant memory files were found."
   }
 
   return results
     .map((result, i) => {
-      const header = `=== Memory File ${
-        i + 1
-      }: ${result.sessionId} (relevance: ${
-        (result.score * 100).toFixed(0)
-      }%) ===`;
-      return `${header}\n${result.content}`;
+      const header = `=== Memory File ${i + 1}: ${result.sessionId} (relevance: ${(
+        result.score * 100
+      ).toFixed(0)}%) ===`
+      return `${header}\n${result.content}`
     })
-    .join("\n\n---\n\n");
+    .join("\n\n---\n\n")
 }
 
 export function buildFilesystemAnswerPrompt(
   question: string,
   context: unknown[],
-  questionDate?: string,
+  questionDate?: string
 ): string {
-  const retrievedContext = buildFilesystemContext(context);
+  const retrievedContext = buildFilesystemContext(context)
 
   return `You are a question-answering system. You have access to structured memory files containing extracted facts, events, preferences, and relationships. Based on the retrieved memories below, answer the question.
 
@@ -62,11 +60,11 @@ Reasoning:
 [Your step-by-step reasoning process here]
 
 Answer:
-[Your final answer here]`;
+[Your final answer here]`
 }
 
 export const FILESYSTEM_PROMPTS: ProviderPrompts = {
   answerPrompt: buildFilesystemAnswerPrompt,
-};
+}
 
-export default FILESYSTEM_PROMPTS;
+export default FILESYSTEM_PROMPTS

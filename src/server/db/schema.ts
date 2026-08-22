@@ -1,10 +1,4 @@
-import {
-  integer,
-  real,
-  sqliteTable,
-  text,
-  uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 
 export const leaderboardEntries = sqliteTable(
   "leaderboard_entries",
@@ -46,10 +40,10 @@ export const leaderboardEntries = sqliteTable(
     providerBenchmarkVersion: uniqueIndex("provider_benchmark_version_idx").on(
       table.provider,
       table.benchmark,
-      table.version,
+      table.version
     ),
-  }),
-);
+  })
+)
 
-export type LeaderboardEntry = typeof leaderboardEntries.$inferSelect;
-export type NewLeaderboardEntry = typeof leaderboardEntries.$inferInsert;
+export type LeaderboardEntry = typeof leaderboardEntries.$inferSelect
+export type NewLeaderboardEntry = typeof leaderboardEntries.$inferInsert

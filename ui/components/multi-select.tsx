@@ -1,22 +1,22 @@
-"use client";
+"use client"
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
+import { cn } from "@/lib/utils"
 
 interface Option {
-  value: string;
-  label: string;
-  count?: number;
+  value: string
+  label: string
+  count?: number
 }
 
 interface MultiSelectProps {
-  label: string;
-  options: Option[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
-  searchable?: boolean;
-  placeholder?: string;
+  label: string
+  options: Option[]
+  selected: string[]
+  onChange: (selected: string[]) => void
+  searchable?: boolean
+  placeholder?: string
 }
 
 export function MultiSelect({
@@ -27,77 +27,74 @@ export function MultiSelect({
   searchable = true,
   placeholder,
 }: MultiSelectProps) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 });
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState("")
+  const [position, setPosition] = useState({ top: 0, left: 0, width: 0 })
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // Calculate dropdown position
   useEffect(() => {
     if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
+      const rect = triggerRef.current.getBoundingClientRect()
       setPosition({
         top: rect.bottom + 4,
         left: rect.left,
         width: Math.max(rect.width, 240),
-      });
+      })
     }
-  }, [open]);
+  }, [open])
 
   // Focus search input when opened
   useEffect(() => {
     if (open && searchable && inputRef.current) {
-      setTimeout(() => inputRef.current?.focus(), 0);
+      setTimeout(() => inputRef.current?.focus(), 0)
     }
-  }, [open, searchable]);
+  }, [open, searchable])
 
   // Click outside handler
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
+      const target = event.target as Node
       if (
         triggerRef.current &&
         !triggerRef.current.contains(target) &&
         dropdownRef.current &&
         !dropdownRef.current.contains(target)
       ) {
-        setOpen(false);
-        setSearch("");
+        setOpen(false)
+        setSearch("")
       }
     }
 
     if (open) {
-      document.addEventListener("mousedown", handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside)
     }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [open])
 
   // Filter options based on search
   const filteredOptions = search
-    ? options.filter((opt) =>
-      opt.label.toLowerCase().includes(search.toLowerCase())
-    )
-    : options;
+    ? options.filter((opt) => opt.label.toLowerCase().includes(search.toLowerCase()))
+    : options
 
   const toggleOption = (value: string) => {
     if (selected.includes(value)) {
-      onChange(selected.filter((v) => v !== value));
+      onChange(selected.filter((v) => v !== value))
     } else {
-      onChange([...selected, value]);
+      onChange([...selected, value])
     }
-  };
+  }
 
-  const displayText = selected.length === 0
-    ? placeholder || label
-    : selected.length === 1
-    ? options.find((o) => o.value === selected[0])?.label || selected[0]
-    : selected.length <= 2
-    ? selected.map((v) => options.find((o) => o.value === v)?.label || v).join(
-      ", ",
-    )
-    : `${selected.length} selected`;
+  const displayText =
+    selected.length === 0
+      ? placeholder || label
+      : selected.length === 1
+        ? options.find((o) => o.value === selected[0])?.label || selected[0]
+        : selected.length <= 2
+          ? selected.map((v) => options.find((o) => o.value === v)?.label || v).join(", ")
+          : `${selected.length} selected`
 
   return (
     <>
@@ -108,29 +105,22 @@ export function MultiSelect({
         className={cn(
           "flex items-center justify-between gap-2 px-3 py-2.5 text-sm w-full cursor-pointer",
           "bg-transparent text-text-secondary hover:text-text-primary transition-colors",
-          selected.length > 0 && "text-text-primary",
+          selected.length > 0 && "text-text-primary"
         )}
         onClick={(e) => {
-          e.stopPropagation();
-          setOpen(!open);
+          e.stopPropagation()
+          setOpen(!open)
         }}
       >
         <span className="truncate">{displayText}</span>
         <svg
-          className={cn(
-            "w-4 h-4 flex-shrink-0 transition-transform",
-            open && "rotate-180",
-          )}
+          className={cn("w-4 h-4 flex-shrink-0 transition-transform", open && "rotate-180")}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
           strokeWidth={2}
         >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M19 9l-7 7-7-7"
-          />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
@@ -179,69 +169,57 @@ export function MultiSelect({
 
             {/* Options list */}
             <div className="max-h-64 overflow-y-auto">
-              {filteredOptions.length === 0
-                ? (
-                  <div className="px-3 py-2 text-sm text-text-muted">
-                    No options found
-                  </div>
-                )
-                : (
-                  filteredOptions.map((option) => {
-                    const isSelected = selected.includes(option.value);
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
+              {filteredOptions.length === 0 ? (
+                <div className="px-3 py-2 text-sm text-text-muted">No options found</div>
+              ) : (
+                filteredOptions.map((option) => {
+                  const isSelected = selected.includes(option.value)
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={cn(
+                        "w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
+                        "text-text-secondary hover:bg-[#222222] hover:text-text-primary",
+                        isSelected && "text-text-primary"
+                      )}
+                      onClick={() => toggleOption(option.value)}
+                    >
+                      {/* Checkbox */}
+                      <div
                         className={cn(
-                          "w-full flex items-center gap-2 px-3 py-2 text-sm text-left transition-colors cursor-pointer",
-                          "text-text-secondary hover:bg-[#222222] hover:text-text-primary",
-                          isSelected && "text-text-primary",
+                          "w-4 h-4 rounded border flex items-center justify-center flex-shrink-0",
+                          isSelected ? "bg-accent border-accent" : "border-[#444444] bg-transparent"
                         )}
-                        onClick={() => toggleOption(option.value)}
                       >
-                        {/* Checkbox */}
-                        <div
-                          className={cn(
-                            "w-4 h-4 rounded border flex items-center justify-center flex-shrink-0",
-                            isSelected
-                              ? "bg-accent border-accent"
-                              : "border-[#444444] bg-transparent",
-                          )}
-                        >
-                          {isSelected && (
-                            <svg
-                              className="w-3 h-3 text-white"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={3}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          )}
-                        </div>
-
-                        {/* Label */}
-                        <span className="flex-1 truncate">{option.label}</span>
-
-                        {/* Count */}
-                        {option.count !== undefined && (
-                          <span className="text-text-muted text-xs">
-                            {option.count}
-                          </span>
+                        {isSelected && (
+                          <svg
+                            className="w-3 h-3 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={3}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
                         )}
-                      </button>
-                    );
-                  })
-                )}
+                      </div>
+
+                      {/* Label */}
+                      <span className="flex-1 truncate">{option.label}</span>
+
+                      {/* Count */}
+                      {option.count !== undefined && (
+                        <span className="text-text-muted text-xs">{option.count}</span>
+                      )}
+                    </button>
+                  )
+                })
+              )}
             </div>
           </div>,
-          document.body,
+          document.body
         )}
     </>
-  );
+  )
 }

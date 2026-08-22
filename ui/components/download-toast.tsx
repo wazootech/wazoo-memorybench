@@ -1,42 +1,42 @@
-"use client";
+"use client"
 
-import { useCallback, useEffect, useState } from "react";
-import { type ActiveDownload, getActiveDownloads } from "@/lib/api";
+import { useCallback, useEffect, useState } from "react"
+import { type ActiveDownload, getActiveDownloads } from "@/lib/api"
 
-const POLL_INTERVAL = 1000; // 1 second polling
+const POLL_INTERVAL = 1000 // 1 second polling
 
 interface DownloadToastProps {
-  onDownloadComplete?: () => void;
+  onDownloadComplete?: () => void
 }
 
 export function DownloadToast({ onDownloadComplete }: DownloadToastProps) {
-  const [downloads, setDownloads] = useState<ActiveDownload[]>([]);
-  const [wasDownloading, setWasDownloading] = useState(false);
+  const [downloads, setDownloads] = useState<ActiveDownload[]>([])
+  const [wasDownloading, setWasDownloading] = useState(false)
 
   const fetchDownloads = useCallback(async () => {
     try {
-      const data = await getActiveDownloads();
-      setDownloads(data.downloads);
+      const data = await getActiveDownloads()
+      setDownloads(data.downloads)
 
       // Detect when download completes
       if (wasDownloading && data.downloads.length === 0) {
-        onDownloadComplete?.();
-        setWasDownloading(false);
+        onDownloadComplete?.()
+        setWasDownloading(false)
       } else if (data.downloads.length > 0) {
-        setWasDownloading(true);
+        setWasDownloading(true)
       }
     } catch {
       // Silent fail - API might not be available
     }
-  }, [wasDownloading, onDownloadComplete]);
+  }, [wasDownloading, onDownloadComplete])
 
   useEffect(() => {
-    fetchDownloads();
-    const interval = setInterval(fetchDownloads, POLL_INTERVAL);
-    return () => clearInterval(interval);
-  }, [fetchDownloads]);
+    fetchDownloads()
+    const interval = setInterval(fetchDownloads, POLL_INTERVAL)
+    return () => clearInterval(interval)
+  }, [fetchDownloads])
 
-  if (downloads.length === 0) return null;
+  if (downloads.length === 0) return null
 
   return (
     <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 animate-fade-in">
@@ -64,18 +64,15 @@ export function DownloadToast({ onDownloadComplete }: DownloadToastProps) {
               className="h-full rounded-full animate-indeterminate"
               style={{
                 width: "30%",
-                background:
-                  "linear-gradient(90deg, rgb(38, 123, 241) 0%, rgb(21, 70, 139) 100%)",
+                background: "linear-gradient(90deg, rgb(38, 123, 241) 0%, rgb(21, 70, 139) 100%)",
               }}
             />
           </div>
 
           {/* Status text */}
-          <div className="text-xs text-text-secondary">
-            Downloading dataset...
-          </div>
+          <div className="text-xs text-text-secondary">Downloading dataset...</div>
         </div>
       ))}
     </div>
-  );
+  )
 }

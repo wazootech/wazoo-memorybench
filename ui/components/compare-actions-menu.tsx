@@ -1,54 +1,49 @@
-"use client";
+"use client"
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
+import Link from "next/link"
 
 interface CompareActionsMenuProps {
-  compareId: string;
-  onDelete: () => void;
+  compareId: string
+  onDelete: () => void
 }
 
-export function CompareActionsMenu(
-  { compareId, onDelete }: CompareActionsMenuProps,
-) {
-  const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+export function CompareActionsMenu({ compareId, onDelete }: CompareActionsMenuProps) {
+  const [open, setOpen] = useState(false)
+  const [position, setPosition] = useState({ top: 0, left: 0 })
 
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   // Calculate dropdown position
   useEffect(() => {
     if (open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      const dropdownWidth = 192;
+      const rect = triggerRef.current.getBoundingClientRect()
+      const dropdownWidth = 192
 
       setPosition({
         top: rect.bottom + 4,
         left: rect.right - dropdownWidth,
-      });
+      })
     }
-  }, [open]);
+  }, [open])
 
   // Click outside handler
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      const target = event.target as Node;
+      const target = event.target as Node
 
       if (open && triggerRef.current && dropdownRef.current) {
-        if (
-          !triggerRef.current.contains(target) &&
-          !dropdownRef.current.contains(target)
-        ) {
-          setOpen(false);
+        if (!triggerRef.current.contains(target) && !dropdownRef.current.contains(target)) {
+          setOpen(false)
         }
       }
     }
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [open])
 
   return (
     <>
@@ -56,8 +51,8 @@ export function CompareActionsMenu(
         ref={triggerRef}
         className="p-1.5 text-text-muted hover:text-text-primary rounded hover:bg-[#222222] transition-colors cursor-pointer"
         onClick={(e) => {
-          e.stopPropagation();
-          setOpen(!open);
+          e.stopPropagation()
+          setOpen(!open)
         }}
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -92,16 +87,16 @@ export function CompareActionsMenu(
               <button
                 className="w-full px-3 py-2 text-sm text-left transition-colors flex items-center gap-2 cursor-pointer text-status-error hover:bg-[#222222]"
                 onClick={() => {
-                  onDelete();
-                  setOpen(false);
+                  onDelete()
+                  setOpen(false)
                 }}
               >
                 delete
               </button>
             </div>
           </div>,
-          document.body,
+          document.body
         )}
     </>
-  );
+  )
 }

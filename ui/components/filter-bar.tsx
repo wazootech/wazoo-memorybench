@@ -1,23 +1,23 @@
-"use client";
+"use client"
 
-import { MultiSelect } from "./multi-select";
+import { MultiSelect } from "./multi-select"
 
 interface FilterConfig {
-  key: string;
-  label: string;
-  options: { value: string; label: string; count?: number }[];
-  selected: string[];
-  onChange: (selected: string[]) => void;
+  key: string
+  label: string
+  options: { value: string; label: string; count?: number }[]
+  selected: string[]
+  onChange: (selected: string[]) => void
 }
 
 interface FilterBarProps {
-  totalCount: number;
-  filteredCount?: number;
-  searchValue: string;
-  onSearchChange: (value: string) => void;
-  searchPlaceholder?: string;
-  filters: FilterConfig[];
-  onClearAll: () => void;
+  totalCount: number
+  filteredCount?: number
+  searchValue: string
+  onSearchChange: (value: string) => void
+  searchPlaceholder?: string
+  filters: FilterConfig[]
+  onClearAll: () => void
 }
 
 export function FilterBar({
@@ -29,9 +29,8 @@ export function FilterBar({
   filters,
   onClearAll,
 }: FilterBarProps) {
-  const hasActiveFilters = searchValue ||
-    filters.some((f) => f.selected.length > 0);
-  const displayCount = filteredCount !== undefined ? filteredCount : totalCount;
+  const hasActiveFilters = searchValue || filters.some((f) => f.selected.length > 0)
+  const displayCount = filteredCount !== undefined ? filteredCount : totalCount
 
   return (
     <div className="space-y-2">
@@ -83,9 +82,7 @@ export function FilterBar({
         {filters.map((filter, idx) => (
           <div
             key={filter.key}
-            className={`flex-1 ${
-              idx < filters.length - 1 ? "border-r border-[#333333]" : ""
-            }`}
+            className={`flex-1 ${idx < filters.length - 1 ? "border-r border-[#333333]" : ""}`}
           >
             <MultiSelect
               label={filter.label}
@@ -98,5 +95,5 @@ export function FilterBar({
         ))}
       </div>
     </div>
-  );
+  )
 }
