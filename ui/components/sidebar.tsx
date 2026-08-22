@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const navigation = [
   {
@@ -61,10 +61,10 @@ const navigation = [
       </svg>
     ),
   },
-]
+];
 
 export function Sidebar() {
-  const pathname = usePathname()
+  const pathname = usePathname();
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-bg-primary border-r border-[#333333] flex flex-col">
@@ -84,7 +84,8 @@ export function Sidebar() {
           href="/runs/new"
           className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded text-sm font-medium transition-all font-display tracking-tight text-white border border-transparent hover:border-white/30"
           style={{
-            background: "linear-gradient(135deg, rgb(38, 123, 241) 40%, rgb(21, 70, 139) 100%)",
+            background:
+              "linear-gradient(135deg, rgb(38, 123, 241) 40%, rgb(21, 70, 139) 100%)",
             boxShadow:
               "rgba(255, 255, 255, 0.25) 2px 2px 8px 0px inset, rgba(0, 0, 0, 0.15) -2px -2px 7px 0px inset",
           }}
@@ -103,12 +104,12 @@ export function Sidebar() {
 
         {/* Other nav items */}
         {navigation.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href === "/runs" && pathname?.startsWith("/runs") && pathname !== "/runs/new") ||
+          const isActive = pathname === item.href ||
+            (item.href === "/runs" && pathname?.startsWith("/runs") &&
+              pathname !== "/runs/new") ||
             (item.href === "/compare" &&
               pathname?.startsWith("/compare") &&
-              pathname !== "/compare/new")
+              pathname !== "/compare/new");
 
           return (
             <Link
@@ -117,18 +118,18 @@ export function Sidebar() {
               className={`
                 flex items-center gap-3 px-3 py-1.5 rounded text-sm font-medium transition-all font-display tracking-tight
                 ${
-                  isActive
-                    ? "bg-[#222222] text-text-primary"
-                    : "text-text-secondary hover:bg-[#222222] hover:text-text-primary"
-                }
+                isActive
+                  ? "bg-[#222222] text-text-primary"
+                  : "text-text-secondary hover:bg-[#222222] hover:text-text-primary"
+              }
               `}
             >
               {item.icon}
               {item.name}
             </Link>
-          )
+          );
         })}
       </nav>
     </aside>
-  )
+  );
 }

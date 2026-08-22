@@ -5,7 +5,8 @@
 /* Font Faces */
 @font-face {
   font-family: "Space Grotesk";
-  src: url("https://fonts.gstatic.com/s/spacegrotesk/v22/V8mDoQDjQSkFtoMM3T6r8E7mPbF4Cw.woff2") format("woff2");
+  src: url("https://fonts.gstatic.com/s/spacegrotesk/v22/V8mDoQDjQSkFtoMM3T6r8E7mPbF4Cw.woff2")
+    format("woff2");
   font-weight: 300 700;
   font-style: normal;
   font-display: swap;
@@ -94,12 +95,16 @@ body {
   }
 
   .card-hover {
-    @apply transition-colors hover:bg-bg-surface-hover hover:border-border-hover;
+    @apply transition-colors hover:bg-bg-surface-hover
+      hover:border-border-hover;
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded font-medium transition-all;
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded
+      font-medium transition-all;
+    @apply focus-visible:outline-none focus-visible:ring-2
+      focus-visible:ring-accent focus-visible:ring-offset-2
+      focus-visible:ring-offset-bg-primary;
   }
 
   .btn-primary {
@@ -107,17 +112,21 @@ body {
   }
 
   .btn-secondary {
-    @apply bg-bg-surface border border-border text-text-primary hover:bg-bg-surface-hover hover:border-border-hover;
+    @apply bg-bg-surface border border-border text-text-primary
+      hover:bg-bg-surface-hover hover:border-border-hover;
   }
 
   .btn-ghost {
-    @apply bg-transparent text-text-secondary hover:bg-bg-surface hover:text-text-primary;
+    @apply bg-transparent text-text-secondary hover:bg-bg-surface
+      hover:text-text-primary;
   }
 
   .input {
-    @apply w-full bg-bg-surface border border-border rounded px-3 py-2 text-text-primary;
+    @apply w-full bg-bg-surface border border-border rounded px-3 py-2
+      text-text-primary;
     @apply placeholder:text-text-muted;
-    @apply focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent;
+    @apply focus:outline-none focus:border-accent focus:ring-1
+      focus:ring-accent;
     @apply transition-colors;
   }
 
@@ -155,7 +164,8 @@ body {
   }
 
   .table-header {
-    @apply text-xs font-medium text-text-muted uppercase tracking-wider font-display;
+    @apply text-xs font-medium text-text-muted uppercase tracking-wider
+      font-display;
   }
 
   .table-cell {

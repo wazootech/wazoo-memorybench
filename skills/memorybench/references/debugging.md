@@ -1,6 +1,7 @@
 # Debugging and Troubleshooting Reference
 
-Common issues when integrating a custom provider into MemoryBench and how to resolve them.
+Common issues when integrating a custom provider into MemoryBench and how to
+resolve them.
 
 ## Quick Diagnostics
 
@@ -27,12 +28,14 @@ bun run src/index.ts show-failures -r your-run-id
 ### Error: "Provider not initialized"
 
 **Symptoms:**
+
 ```
 Error: Provider not initialized
   at YourProvider.ingest
 ```
 
 **Causes:**
+
 1. `initialize()` never called
 2. `initialize()` threw an error
 3. Client not assigned to `this.client`
@@ -40,6 +43,7 @@ Error: Provider not initialized
 **Solutions:**
 
 Check initialization:
+
 ```typescript
 async initialize(config: ProviderConfig): Promise<void> {
   // ADD LOGGING
@@ -66,6 +70,7 @@ async initialize(config: ProviderConfig): Promise<void> {
 ```
 
 Check environment variables:
+
 ```bash
 # In .env.local
 YOUR_PROVIDER_API_KEY=your-actual-key-here
@@ -77,12 +82,14 @@ YOUR_PROVIDER_BASE_URL=http://localhost:3000
 ### Error: "API key missing or invalid"
 
 **Symptoms:**
+
 ```
 Error: API key is required
 Error: 401 Unauthorized
 ```
 
 **Causes:**
+
 1. Environment variable not set
 2. Wrong variable name
 3. Key not loaded from `.env.local`
@@ -90,6 +97,7 @@ Error: 401 Unauthorized
 **Solutions:**
 
 Verify environment loading:
+
 ```typescript
 async initialize(config: ProviderConfig): Promise<void> {
   // CHECK WHAT WE RECEIVED
@@ -107,6 +115,7 @@ async initialize(config: ProviderConfig): Promise<void> {
 ```
 
 Check config.ts:
+
 ```typescript
 // In src/utils/config.ts
 case "yourprovider":
@@ -121,11 +130,13 @@ case "yourprovider":
 ### Error: Ingestion fails silently
 
 **Symptoms:**
+
 - Ingestion phase completes
 - Search returns no results
 - No obvious errors
 
 **Causes:**
+
 1. Documents ingested but not indexed
 2. ContainerTag mismatch
 3. Data format rejected by API
@@ -133,6 +144,7 @@ case "yourprovider":
 **Solutions:**
 
 Add detailed logging:
+
 ```typescript
 async ingest(sessions: UnifiedSession[], options: IngestOptions): Promise<IngestResult> {
   logger.info(`Starting ingestion of ${sessions.length} sessions`)
@@ -170,10 +182,11 @@ async ingest(sessions: UnifiedSession[], options: IngestOptions): Promise<Ingest
 ```
 
 Verify documents in your system:
+
 ```typescript
 // After ingestion, check if documents exist
-const doc = await this.client.getDocument(documentIds[0])
-logger.info("Sample document:", { doc })
+const doc = await this.client.getDocument(documentIds[0]);
+logger.info("Sample document:", { doc });
 ```
 
 ---
@@ -181,12 +194,14 @@ logger.info("Sample document:", { doc })
 ### Error: Search returns empty results
 
 **Symptoms:**
+
 ```
 Search results: []
 Answer: "I don't have enough information..."
 ```
 
 **Causes:**
+
 1. Indexing not complete
 2. ContainerTag filtering too strict
 3. Search threshold too high
@@ -195,6 +210,7 @@ Answer: "I don't have enough information..."
 **Solutions:**
 
 Check indexing status:
+
 ```typescript
 async awaitIndexing(result: IngestResult, containerTag: string, onProgress) {
   logger.info("Waiting for indexing", {
@@ -218,6 +234,7 @@ async awaitIndexing(result: IngestResult, containerTag: string, onProgress) {
 ```
 
 Debug search:
+
 ```typescript
 async search(query: string, options: SearchOptions): Promise<unknown[]> {
   logger.info("Searching", {
@@ -248,10 +265,11 @@ async search(query: string, options: SearchOptions): Promise<unknown[]> {
 ```
 
 Test without containerTag:
+
 ```typescript
 // Temporarily remove filtering to see if data exists
-const allResults = await this.client.search({ query, limit: 30 })
-logger.info("Total results without filter:", allResults.length)
+const allResults = await this.client.search({ query, limit: 30 });
+logger.info("Total results without filter:", allResults.length);
 ```
 
 ---
@@ -259,11 +277,13 @@ logger.info("Total results without filter:", allResults.length)
 ### Error: Answers are incorrect
 
 **Symptoms:**
+
 - Search returns results
 - LLM generates answers
 - Judge scores them as incorrect
 
 **Causes:**
+
 1. Irrelevant search results
 2. Poor result formatting
 3. LLM not understanding context format
@@ -272,6 +292,7 @@ logger.info("Total results without filter:", allResults.length)
 **Solutions:**
 
 Inspect search results:
+
 ```bash
 cd memorybench
 bun run src/index.ts test -p yourprovider -b locomo -q question_1
@@ -280,22 +301,27 @@ bun run src/index.ts test -p yourprovider -b locomo -q question_1
 Look at what was retrieved vs what was needed.
 
 Add custom prompts:
+
 ```typescript
 // prompts.ts
 export const YOUR_PROMPTS: ProviderPrompts = {
-  answerPrompt: (question: string, context: unknown[], questionDate?: string) => {
+  answerPrompt: (
+    question: string,
+    context: unknown[],
+    questionDate?: string,
+  ) => {
     // Format context better for LLM understanding
     const formattedContext = context.map((item: any, idx) => {
       return `[Context ${idx + 1}]
-Date: ${item.metadata?.date || 'Unknown'}
+Date: ${item.metadata?.date || "Unknown"}
 Content: ${item.content || JSON.stringify(item)}
-Relevance: ${item.score || 'N/A'}`
-    }).join('\n\n---\n\n')
+Relevance: ${item.score || "N/A"}`;
+    }).join("\n\n---\n\n");
 
     return `You are answering based on retrieved context.
 
 Question: ${question}
-${questionDate ? `Question Date: ${questionDate}` : ''}
+${questionDate ? `Question Date: ${questionDate}` : ""}
 
 Retrieved Context:
 ${formattedContext}
@@ -306,12 +332,13 @@ Instructions:
 - If context is insufficient, say so clearly
 - Pay attention to dates and temporal information
 
-Answer:`
-  }
-}
+Answer:`;
+  },
+};
 ```
 
 Adjust search threshold:
+
 ```typescript
 async search(query: string, options: SearchOptions) {
   return await this.client.search({
@@ -327,11 +354,13 @@ async search(query: string, options: SearchOptions) {
 ### Error: Timeout during indexing
 
 **Symptoms:**
+
 ```
 Error: Timeout waiting for indexing to complete
 ```
 
 **Causes:**
+
 1. Indexing actually takes very long
 2. Status check logic incorrect
 3. Documents stuck in processing
@@ -339,6 +368,7 @@ Error: Timeout waiting for indexing to complete
 **Solutions:**
 
 Check if indexing is really needed:
+
 ```typescript
 async awaitIndexing(result: IngestResult, containerTag: string, onProgress) {
   // If your system has synchronous indexing, just return immediately
@@ -349,6 +379,7 @@ async awaitIndexing(result: IngestResult, containerTag: string, onProgress) {
 ```
 
 Add timeout handling:
+
 ```typescript
 async awaitIndexing(result: IngestResult, containerTag: string, onProgress) {
   const MAX_WAIT_TIME = 5 * 60 * 1000  // 5 minutes
@@ -385,12 +416,14 @@ async awaitIndexing(result: IngestResult, containerTag: string, onProgress) {
 ### Error: Rate limit exceeded
 
 **Symptoms:**
+
 ```
 Error: 429 Too Many Requests
 Error: Rate limit exceeded
 ```
 
 **Causes:**
+
 1. Too many concurrent requests
 2. API has strict rate limits
 3. Concurrency config too aggressive
@@ -398,17 +431,19 @@ Error: Rate limit exceeded
 **Solutions:**
 
 Reduce concurrency:
+
 ```typescript
 export class YourProvider implements Provider {
   concurrency = {
-    default: 5,     // ← Lower numbers
+    default: 5, // ← Lower numbers
     ingest: 10,
     indexing: 20,
-  }
+  };
 }
 ```
 
 Add delays:
+
 ```typescript
 async ingest(sessions: UnifiedSession[], options: IngestOptions) {
   const documentIds: string[] = []
@@ -426,6 +461,7 @@ async ingest(sessions: UnifiedSession[], options: IngestOptions) {
 ```
 
 Add retry logic:
+
 ```typescript
 async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
   for (let i = 0; i < maxRetries; i++) {
@@ -478,6 +514,7 @@ async initialize(config: ProviderConfig): Promise<void> {
 ```
 
 Run single test:
+
 ```bash
 bun run src/index.ts test -p yourprovider -b locomo -q question_1
 ```
@@ -524,6 +561,7 @@ Watch the output carefully for errors.
 **Cause:** Environment differences, timing issues, or state management.
 
 **Solution:**
+
 1. Use same API keys/config in both places
 2. Test with same data format (UnifiedSession)
 3. Check for race conditions in async code
@@ -536,6 +574,7 @@ Watch the output carefully for errors.
 **Cause:** Resource exhaustion, connection pooling, memory leaks.
 
 **Solution:**
+
 1. Add connection reuse/pooling
 2. Close resources after each operation
 3. Monitor memory usage during benchmark
@@ -548,6 +587,7 @@ Watch the output carefully for errors.
 **Cause:** Non-deterministic search results, timing-dependent behavior.
 
 **Solution:**
+
 1. Ensure stable sorting of search results
 2. Use consistent threshold values
 3. Check if results are based on server state
@@ -560,26 +600,27 @@ Watch the output carefully for errors.
 Add structured logging throughout:
 
 ```typescript
-import { logger } from "../../utils/logger"
+import { logger } from "../../utils/logger";
 
 // INFO: Major events
-logger.info("Starting ingestion", { sessionCount: sessions.length })
+logger.info("Starting ingestion", { sessionCount: sessions.length });
 
 // DEBUG: Detailed data
 logger.debug("Session transformed", {
   sessionId,
   originalSize: original.length,
-  transformedSize: transformed.length
-})
+  transformedSize: transformed.length,
+});
 
 // WARN: Concerning but not fatal
-logger.warn("Using default threshold", { threshold: 0.3 })
+logger.warn("Using default threshold", { threshold: 0.3 });
 
 // ERROR: Failures
-logger.error("Failed to search", { error, query })
+logger.error("Failed to search", { error, query });
 ```
 
 View logs during execution:
+
 ```bash
 # Logs appear in stdout during runs
 bun run src/index.ts run -p yourprovider -b locomo -l 5
@@ -591,7 +632,8 @@ bun run src/index.ts run -p yourprovider -b locomo -l 5
 
 If you're still stuck:
 
-1. **Check existing providers** - Look at `src/providers/supermemory`, `src/providers/mem0`, etc. for working examples
+1. **Check existing providers** - Look at `src/providers/supermemory`,
+   `src/providers/mem0`, etc. for working examples
 
 2. **Run comparison** - Compare your provider against a working one:
    ```bash
@@ -619,10 +661,11 @@ concurrency = {
   default: 100,
   ingest: 200,
   indexing: 500,
-}
+};
 ```
 
-Test with `bun run src/index.ts run -p yourprovider -b locomo -l 20` and monitor for errors.
+Test with `bun run src/index.ts run -p yourprovider -b locomo -l 20` and monitor
+for errors.
 
 ### Batch Operations
 

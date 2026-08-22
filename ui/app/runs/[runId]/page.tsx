@@ -1,59 +1,66 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from "react"
-import Link from "next/link"
-import { useParams, useSearchParams, useRouter } from "next/navigation"
-import { getRun, getRunReport, stopRun, startRun, type RunDetail } from "@/lib/api"
-import { formatDate, getStatusColor, cn } from "@/lib/utils"
-import { PhaseProgress } from "@/components/phase-progress"
-import { QuestionList } from "@/components/question-list"
+import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
-  StatsGrid,
+  getRun,
+  getRunReport,
+  type RunDetail,
+  startRun,
+  stopRun,
+} from "@/lib/api";
+import { cn, formatDate, getStatusColor } from "@/lib/utils";
+import { PhaseProgress } from "@/components/phase-progress";
+import { QuestionList } from "@/components/question-list";
+import {
   AccuracyByType,
   LatencyTable,
   RetrievalMetrics,
-} from "@/components/benchmark-results"
+  StatsGrid,
+} from "@/components/benchmark-results";
 
-type Tab = "overview" | "results"
+type Tab = "overview" | "results";
 
-const POLL_INTERVAL = 2000 // 2 seconds
+const POLL_INTERVAL = 2000; // 2 seconds
 
 export default function RunDetailPage() {
-  const params = useParams()
-  const searchParams = useSearchParams()
-  const router = useRouter()
-  const runId = decodeURIComponent(params.runId as string)
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const params = useParams();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const runId = decodeURIComponent(params.runId as string);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Get tab from URL or default to "overview"
-  const tabFromUrl = searchParams.get("tab") as Tab | null
+  const tabFromUrl = searchParams.get("tab") as Tab | null;
   const initialTab: Tab =
-    tabFromUrl && ["overview", "results"].includes(tabFromUrl) ? tabFromUrl : "overview"
+    tabFromUrl && ["overview", "results"].includes(tabFromUrl)
+      ? tabFromUrl
+      : "overview";
 
-  const [run, setRun] = useState<RunDetail | null>(null)
-  const [report, setReport] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<Tab>(initialTab)
-  const [terminating, setTerminating] = useState(false)
+  const [run, setRun] = useState<RunDetail | null>(null);
+  const [report, setReport] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  const [terminating, setTerminating] = useState(false);
 
   // Check if run is in progress (include stopping to keep polling until fully stopped)
-  const isInitializing = run?.status === "initializing"
-  const isRunning =
-    run?.status === "running" ||
+  const isInitializing = run?.status === "initializing";
+  const isRunning = run?.status === "running" ||
     run?.status === "pending" ||
     run?.status === "stopping" ||
-    isInitializing
-  const isStopping = run?.status === "stopping"
-  const isFailed = run?.status === "failed"
-  const isPartial = run?.status === "partial"
-  const canContinue = isFailed || isPartial
+    isInitializing;
+  const isStopping = run?.status === "stopping";
+  const isFailed = run?.status === "failed";
+  const isPartial = run?.status === "partial";
+  const canContinue = isFailed || isPartial;
 
-  const [continuing, setContinuing] = useState(false)
+  const [continuing, setContinuing] = useState(false);
 
   async function handleContinue() {
-    if (continuing || !run) return
-    setContinuing(true)
+    if (continuing || !run) return;
+    setContinuing(true);
     try {
       await startRun({
         provider: run.provider,
@@ -61,37 +68,36 @@ export default function RunDetailPage() {
         runId: run.runId,
         judgeModel: run.judge,
         answeringModel: run.answeringModel,
-      })
-      await refreshData()
+      });
+      await refreshData();
     } catch (e) {
-      console.error("Failed to continue:", e)
+      console.error("Failed to continue:", e);
     } finally {
-      setContinuing(false)
+      setContinuing(false);
     }
   }
 
   async function handleTerminate() {
-    if (terminating) return
-    setTerminating(true)
+    if (terminating) return;
+    setTerminating(true);
     try {
-      await stopRun(runId)
-      await refreshData()
+      await stopRun(runId);
+      await refreshData();
     } catch (e) {
-      console.error("Failed to terminate:", e)
+      console.error("Failed to terminate:", e);
     } finally {
-      setTerminating(false)
+      setTerminating(false);
     }
   }
 
   // Update URL when tab changes
   const handleTabChange = (tab: Tab) => {
-    setActiveTab(tab)
-    const newUrl =
-      tab === "overview"
-        ? `/runs/${encodeURIComponent(runId)}`
-        : `/runs/${encodeURIComponent(runId)}?tab=${tab}`
-    router.replace(newUrl, { scroll: false })
-  }
+    setActiveTab(tab);
+    const newUrl = tab === "overview"
+      ? `/runs/${encodeURIComponent(runId)}`
+      : `/runs/${encodeURIComponent(runId)}?tab=${tab}`;
+    router.replace(newUrl, { scroll: false });
+  };
 
   // Silent refresh (no loading state)
   const refreshData = useCallback(async () => {
@@ -99,52 +105,52 @@ export default function RunDetailPage() {
       const [runData, reportData] = await Promise.all([
         getRun(runId),
         getRunReport(runId).catch(() => null),
-      ])
-      setRun(runData)
-      setReport(reportData)
-      setError(null)
+      ]);
+      setRun(runData);
+      setReport(reportData);
+      setError(null);
     } catch (e) {
       // Silent fail on poll
     }
-  }, [runId])
+  }, [runId]);
 
   // Initial load
   useEffect(() => {
-    loadData()
-  }, [runId])
+    loadData();
+  }, [runId]);
 
   // Polling when run is in progress
   useEffect(() => {
     if (isRunning) {
-      pollIntervalRef.current = setInterval(refreshData, POLL_INTERVAL)
+      pollIntervalRef.current = setInterval(refreshData, POLL_INTERVAL);
     } else {
       if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current)
-        pollIntervalRef.current = null
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
       }
     }
 
     return () => {
       if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current)
+        clearInterval(pollIntervalRef.current);
       }
-    }
-  }, [isRunning, refreshData])
+    };
+  }, [isRunning, refreshData]);
 
   async function loadData() {
     try {
-      setLoading(true)
+      setLoading(true);
       const [runData, reportData] = await Promise.all([
         getRun(runId),
         getRunReport(runId).catch(() => null),
-      ])
-      setRun(runData)
-      setReport(reportData)
-      setError(null)
+      ]);
+      setRun(runData);
+      setReport(reportData);
+      setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load run")
+      setError(e instanceof Error ? e.message : "Failed to load run");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -153,7 +159,7 @@ export default function RunDetailPage() {
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
-    )
+    );
   }
 
   if (error || !run) {
@@ -164,7 +170,7 @@ export default function RunDetailPage() {
           Back to runs
         </Link>
       </div>
-    )
+    );
   }
 
   // Show initializing state while benchmark is loading/downloading
@@ -184,7 +190,9 @@ export default function RunDetailPage() {
         <div className="mb-8">
           <h1 className="text-2xl font-display font-semibold text-text-primary flex items-center gap-3">
             {runId}
-            <span className="badge text-sm bg-accent/10 text-accent">initializing</span>
+            <span className="badge text-sm bg-accent/10 text-accent">
+              initializing
+            </span>
           </h1>
           <div className="flex items-center gap-4 mt-2 text-sm text-text-secondary">
             <span>
@@ -201,39 +209,50 @@ export default function RunDetailPage() {
         {/* Loading State */}
         <div className="flex flex-col items-center justify-center py-16 border border-border rounded-lg">
           <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-text-secondary text-lg">Loading benchmark dataset...</p>
+          <p className="text-text-secondary text-lg">
+            Loading benchmark dataset...
+          </p>
           <p className="text-text-muted text-sm mt-2">
             This may take a moment for first-time downloads
           </p>
         </div>
       </div>
-    )
+    );
   }
 
-  const allQuestions = Object.values(run.questions)
+  const allQuestions = Object.values(run.questions);
   // Only count questions that have been evaluated
-  const evaluatedQuestions = allQuestions.filter((q) => q.phases.evaluate.status === "completed")
-  const failedQuestions = evaluatedQuestions.filter((q) => q.phases.evaluate.label === "incorrect")
-  const accuracy =
-    report?.summary?.accuracy ??
+  const evaluatedQuestions = allQuestions.filter((q) =>
+    q.phases.evaluate.status === "completed"
+  );
+  const failedQuestions = evaluatedQuestions.filter((q) =>
+    q.phases.evaluate.label === "incorrect"
+  );
+  const accuracy = report?.summary?.accuracy ??
     (evaluatedQuestions.length > 0
-      ? (evaluatedQuestions.filter((q) => q.phases.evaluate.score === 1).length /
-          evaluatedQuestions.length) *
+      ? (evaluatedQuestions.filter((q) => q.phases.evaluate.score === 1)
+        .length /
+        evaluatedQuestions.length) *
         100
-      : 0)
+      : 0);
 
   // Find error from failed phases
   const runError = (() => {
     for (const q of allQuestions) {
-      const phases = q.phases as Record<string, { status?: string; error?: string }>
-      for (const phase of ["ingest", "indexing", "search", "answer", "evaluate"]) {
+      const phases = q.phases as Record<
+        string,
+        { status?: string; error?: string }
+      >;
+      for (
+        const phase of ["ingest", "indexing", "search", "answer", "evaluate"]
+      ) {
         if (phases[phase]?.status === "failed" && phases[phase]?.error) {
-          return phases[phase].error
+          return phases[phase].error;
         }
       }
     }
-    return null
-  })()
+    return null;
+  })();
 
   return (
     <div className="animate-fade-in">
@@ -251,7 +270,9 @@ export default function RunDetailPage() {
         <div>
           <h1 className="text-2xl font-display font-semibold text-text-primary flex items-center gap-3">
             {runId}
-            <span className={cn("badge text-sm", getStatusColor(run.status))}>{run.status}</span>
+            <span className={cn("badge text-sm", getStatusColor(run.status))}>
+              {run.status}
+            </span>
             {(isRunning || isStopping) && (
               <button
                 onClick={handleTerminate}
@@ -259,7 +280,8 @@ export default function RunDetailPage() {
                 className={cn(
                   "px-3 py-1 text-sm rounded transition-colors cursor-pointer",
                   "bg-status-error/10 text-status-error hover:bg-status-error/20",
-                  (terminating || isStopping) && "opacity-50 cursor-not-allowed"
+                  (terminating || isStopping) &&
+                    "opacity-50 cursor-not-allowed",
                 )}
               >
                 {terminating || isStopping ? "Stopping..." : "Terminate"}
@@ -272,7 +294,7 @@ export default function RunDetailPage() {
                 className={cn(
                   "px-3 py-1 text-sm rounded transition-colors cursor-pointer",
                   "bg-accent/10 text-accent hover:bg-accent/20",
-                  continuing && "opacity-50 cursor-not-allowed"
+                  continuing && "opacity-50 cursor-not-allowed",
                 )}
               >
                 {continuing ? "Resuming..." : "Continue"}
@@ -292,7 +314,8 @@ export default function RunDetailPage() {
               <span className="text-text-muted">Judge:</span> {run.judge}
             </span>
             <span>
-              <span className="text-text-muted">Created:</span> {formatDate(run.createdAt)}
+              <span className="text-text-muted">Created:</span>{" "}
+              {formatDate(run.createdAt)}
             </span>
           </div>
         </div>
@@ -304,7 +327,7 @@ export default function RunDetailPage() {
           <div className="max-w-xl w-full px-5 py-4 border border-border rounded">
             <p className="text-sm font-mono">
               <span className="text-status-error font-semibold">Error</span>
-              <span className="text-text-secondary"> {runError}</span>
+              <span className="text-text-secondary">{runError}</span>
             </p>
           </div>
         </div>
@@ -322,7 +345,7 @@ export default function RunDetailPage() {
               "px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px cursor-pointer",
               activeTab === tab
                 ? "text-accent border-accent"
-                : "text-text-secondary border-transparent hover:text-text-primary"
+                : "text-text-secondary border-transparent hover:text-text-primary",
             )}
             onClick={() => handleTabChange(tab)}
           >
@@ -337,9 +360,15 @@ export default function RunDetailPage() {
         <div className="space-y-6">
           {report?.memscore && (
             <div className="card bg-accent/5 border-accent/20">
-              <div className="text-xs text-text-muted uppercase tracking-wide mb-1">MemScore</div>
-              <div className="text-2xl font-mono font-semibold text-accent">{report.memscore}</div>
-              <div className="text-xs text-text-secondary mt-1">quality / latency / tokens</div>
+              <div className="text-xs text-text-muted uppercase tracking-wide mb-1">
+                MemScore
+              </div>
+              <div className="text-2xl font-mono font-semibold text-accent">
+                {report.memscore}
+              </div>
+              <div className="text-xs text-text-secondary mt-1">
+                quality / latency / tokens
+              </div>
             </div>
           )}
           <StatsGrid
@@ -370,11 +399,16 @@ export default function RunDetailPage() {
           />
           <AccuracyByType byQuestionType={report?.byQuestionType} />
           <LatencyTable latency={report?.latency} />
-          <RetrievalMetrics retrieval={report?.retrieval} byQuestionType={report?.byQuestionType} />
+          <RetrievalMetrics
+            retrieval={report?.retrieval}
+            byQuestionType={report?.byQuestionType}
+          />
         </div>
       )}
 
-      {activeTab === "results" && <QuestionList runId={runId} questions={evaluatedQuestions} />}
+      {activeTab === "results" && (
+        <QuestionList runId={runId} questions={evaluatedQuestions} />
+      )}
     </div>
-  )
+  );
 }

@@ -1,21 +1,21 @@
-import type { ProviderPrompts } from "../../types/prompts"
+import type { ProviderPrompts } from "../../types/prompts";
 
 interface RAGSearchResult {
-  content: string
-  score: number
-  vectorScore: number
-  bm25Score: number
-  sessionId: string
-  chunkIndex: number
-  date?: string
-  metadata?: Record<string, unknown>
+  content: string;
+  score: number;
+  vectorScore: number;
+  bm25Score: number;
+  sessionId: string;
+  chunkIndex: number;
+  date?: string;
+  metadata?: Record<string, unknown>;
 }
 
 function buildRAGContext(context: unknown[]): string {
-  const results = context as RAGSearchResult[]
+  const results = context as RAGSearchResult[];
 
   if (results.length === 0) {
-    return "No relevant memory chunks were retrieved."
+    return "No relevant memory chunks were retrieved.";
   }
 
   return results
@@ -24,23 +24,26 @@ function buildRAGContext(context: unknown[]): string {
         `hybrid: ${result.score.toFixed(3)}`,
         `semantic: ${result.vectorScore.toFixed(3)}`,
         `keyword: ${result.bm25Score.toFixed(3)}`,
-      ].join(", ")
+      ].join(", ");
 
-      const date = result.date || (result.metadata?.date as string) || undefined
-      const dateStr = date ? ` | Date: ${date}` : ""
+      const date = result.date || (result.metadata?.date as string) ||
+        undefined;
+      const dateStr = date ? ` | Date: ${date}` : "";
 
-      return `[Chunk ${i + 1}] (session: ${result.sessionId}, scores: ${scoreParts}${dateStr})
-${result.content}`
+      return `[Chunk ${
+        i + 1
+      }] (session: ${result.sessionId}, scores: ${scoreParts}${dateStr})
+${result.content}`;
     })
-    .join("\n\n---\n\n")
+    .join("\n\n---\n\n");
 }
 
 export function buildRAGAnswerPrompt(
   question: string,
   context: unknown[],
-  questionDate?: string
+  questionDate?: string,
 ): string {
-  const retrievedContext = buildRAGContext(context)
+  const retrievedContext = buildRAGContext(context);
 
   return `You are a question-answering system. Based on the retrieved memory chunks below, answer the question.
 
@@ -77,11 +80,11 @@ Reasoning:
 [Your step-by-step reasoning process here]
 
 Answer:
-[Your final answer here]`
+[Your final answer here]`;
 }
 
 export const RAG_PROMPTS: ProviderPrompts = {
   answerPrompt: buildRAGAnswerPrompt,
-}
+};
 
-export default RAG_PROMPTS
+export default RAG_PROMPTS;

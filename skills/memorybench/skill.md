@@ -5,11 +5,13 @@ description: "Automatically benchmark your custom memory implementation against 
 
 # MemoryBench Integration Skill
 
-Automatically benchmark your custom memory implementation against established systems like Supermemory, Mem0, and Zep.
+Automatically benchmark your custom memory implementation against established
+systems like Supermemory, Mem0, and Zep.
 
 ## What This Skill Does
 
-When you invoke this skill from your project, it handles the complete benchmarking process end-to-end:
+When you invoke this skill from your project, it handles the complete
+benchmarking process end-to-end:
 
 1. **Asks you 5 questions** about your setup preferences
 2. **Analyzes your memory code** to understand how it works
@@ -22,9 +24,11 @@ No manual commands needed - everything runs automatically from start to finish.
 ## When to Use This Skill
 
 Use this skill when you:
+
 - Built a custom memory/context system and want to see how it performs
 - Need objective metrics comparing your implementation to industry solutions
-- Want to benchmark on standardized datasets (conversational memory, RAG, dialogue)
+- Want to benchmark on standardized datasets (conversational memory, RAG,
+  dialogue)
 - Are considering which memory system to use and want data-driven comparison
 
 ## How It Works
@@ -32,41 +36,49 @@ Use this skill when you:
 ### The 7 Automated Phases
 
 **Phase 1: Setup**
-- Clones memorybench from https://github.com/supermemoryai/memorybench into your project (`./memorybench`)
+
+- Clones memorybench from https://github.com/supermemoryai/memorybench into your
+  project (`./memorybench`)
 - Installs dependencies with bun
 - Verifies environment is ready
 
 **Phase 2: Discovery**
+
 - Uses AI agents to analyze your memory codebase
 - Identifies initialization, ingestion, and search methods
 - Detects required configuration and API keys
 - Understands your data formats
 
 **Phase 3: Code Generation**
+
 - Creates a provider adapter implementing the MemoryBench interface
 - Copies and adapts your memory code into the provider
 - Generates custom prompts if needed for your result format
 - See [Provider Template Reference](references/provider-template.md)
 
 **Phase 4: Registration**
+
 - Updates `src/types/provider.ts` with your provider name
 - Registers provider in `src/providers/index.ts`
 - Adds configuration in `src/utils/config.ts`
 - Documents environment variables
 
 **Phase 5: Configuration**
+
 - Creates `.env.local` with required API keys
 - Asks for your provider credentials
 - Asks for comparison provider keys (if selected)
 - Asks for OpenAI/Anthropic key for judging
 
 **Phase 6: Validation**
+
 - Runs quick test with single question
 - Verifies provider initialization works
 - Confirms ingestion and search work correctly
 - Asks if you want to continue or debug if issues arise
 
 **Phase 7: Benchmark Execution**
+
 - Runs full benchmark automatically
 - Shows real-time progress (ingestion, indexing, search, answers, evaluation)
 - Compares against selected competitors
@@ -77,17 +89,23 @@ Use this skill when you:
 The skill will ask you these questions upfront:
 
 ### 1. Provider Name
+
 What should we call your memory provider?
+
 - Use lowercase, no spaces (e.g., "mymemory", "contextengine")
 
 ### 2. Memory Code Location
+
 Where is your memory implementation?
+
 - Examples: `src/lib/memory`, `packages/memory`, `src/services/context`
 
 ### 3. Benchmark Dataset
+
 Which dataset matches your use case?
 
-- **LoCoMo** - Long-term conversational memory across multiple sessions spanning days/weeks
+- **LoCoMo** - Long-term conversational memory across multiple sessions spanning
+  days/weeks
   - Best for: Chat apps, AI assistants, customer support bots
 
 - **LongMemEval** - Memory with long documents and complex retrieval
@@ -99,6 +117,7 @@ Which dataset matches your use case?
 See [Benchmarks Reference](references/benchmarks.md) for detailed information.
 
 ### 4. Comparison Targets (Multi-select)
+
 Which systems to compare against?
 
 - **Supermemory** - Fast hybrid vector + graph memory with automatic extraction
@@ -108,6 +127,7 @@ Which systems to compare against?
 - **RAG** - Baseline RAG with LLM extraction (no API required)
 
 ### 5. Test Size
+
 How many questions to benchmark?
 
 - **Small** (5 questions) - Quick validation, ~2-5 minutes
@@ -116,7 +136,8 @@ How many questions to benchmark?
 
 ## Working Directory Management
 
-**Important:** You must run this skill from your project root, NOT from memorybench.
+**Important:** You must run this skill from your project root, NOT from
+memorybench.
 
 ```
 your-project/              ← Run skill from here
@@ -127,6 +148,7 @@ your-project/              ← Run skill from here
 ```
 
 The skill will:
+
 - Verify you're in your project (not in memorybench)
 - Clone memorybench to `./memorybench`
 - Use relative paths (`../src/lib/memory`) when analyzing your code
@@ -158,27 +180,34 @@ your-project/
 Once the benchmark finishes, the skill shows:
 
 **Summary Scores:**
+
 - Accuracy percentage for each provider
 - Average search latency
 - Success rate (questions answered vs failed)
 
 **Key Findings:**
+
 - "Your provider achieved 76% accuracy vs 82% for Supermemory"
 - "Search latency: 145ms (yours) vs 98ms (best competitor)"
 
 **Next Steps:**
+
 - View detailed results: `cd memorybench && bun run src/index.ts serve`
-- See failures: `cd memorybench && bun run src/index.ts show-failures -r {run-id}`
+- See failures:
+  `cd memorybench && bun run src/index.ts show-failures -r {run-id}`
 - Try different benchmark: Run this skill again with another dataset
-- Run manually: `cd memorybench && bun run src/index.ts run -p {name} -b {benchmark}`
+- Run manually:
+  `cd memorybench && bun run src/index.ts run -p {name} -b {benchmark}`
 
 ## Troubleshooting
 
 If something goes wrong:
 
 - **"Provider not initialized"** - Check API keys in `.env.local`
-- **Ingestion fails** - Check data format transformation, see [Data Formats Reference](references/data-formats.md)
-- **Search returns no results** - Verify containerTag handling and indexing completion
+- **Ingestion fails** - Check data format transformation, see
+  [Data Formats Reference](references/data-formats.md)
+- **Search returns no results** - Verify containerTag handling and indexing
+  completion
 - **Answers are wrong** - May need custom prompts for your result format
 
 See [Debugging Reference](references/debugging.md) for detailed troubleshooting.
@@ -217,13 +246,16 @@ Then install dependencies:
 cd memorybench && bun install && cd ..
 ```
 
-**IMPORTANT**: You MUST use the URL `https://github.com/supermemoryai/memorybench.git` - do not infer or use any other URL.
+**IMPORTANT**: You MUST use the URL
+`https://github.com/supermemoryai/memorybench.git` - do not infer or use any
+other URL.
 
 If EXISTS, use the existing installation (no action needed).
 
 ### Step 3: Gather User Input
 
 Use AskUserQuestion tool to collect all 5 questions at once:
+
 1. Provider name (text input suggestion)
 2. Memory code location (text input suggestion)
 3. Benchmark dataset (single select: locomo, longmemeval, convomem)
@@ -232,17 +264,23 @@ Use AskUserQuestion tool to collect all 5 questions at once:
 
 ### Step 4: Analyze User's Memory Code
 
-Use Task tool with `subagent_type=Explore` to analyze the provided memory code location. Look for initialization, add/ingest methods, search/query methods, and configuration needs.
+Use Task tool with `subagent_type=Explore` to analyze the provided memory code
+location. Look for initialization, add/ingest methods, search/query methods, and
+configuration needs.
 
 ### Step 5: Generate Provider Code
 
 Based on discovery, create:
-- `memorybench/src/providers/{providerName}/index.ts` using template from references/provider-template.md
-- Optionally `memorybench/src/providers/{providerName}/prompts.ts` if custom formatting needed
+
+- `memorybench/src/providers/{providerName}/index.ts` using template from
+  references/provider-template.md
+- Optionally `memorybench/src/providers/{providerName}/prompts.ts` if custom
+  formatting needed
 
 ### Step 6: Register Provider
 
 Update these files in memorybench:
+
 1. `src/types/provider.ts` - Add to ProviderName union type
 2. `src/providers/index.ts` - Import and register in providers Record
 3. `src/utils/config.ts` - Add case in getProviderConfig()
@@ -250,8 +288,8 @@ Update these files in memorybench:
 
 ### Step 7: Configure Environment
 
-Ask user for API keys (OpenAI for judging, their provider keys, comparison provider keys).
-Create or update `memorybench/.env.local` with provided values.
+Ask user for API keys (OpenAI for judging, their provider keys, comparison
+provider keys). Create or update `memorybench/.env.local` with provided values.
 
 ### Step 8: Validation Test
 
@@ -265,14 +303,17 @@ If fails, show error and ask user if they want to debug or abort.
 
 ### Step 9: Run Benchmark
 
-Based on user selections, run the benchmark command and LET IT COMPLETE without polling.
+Based on user selections, run the benchmark command and LET IT COMPLETE without
+polling.
 
 **With comparisons:**
+
 ```bash
 cd memorybench && bun run src/index.ts compare -p {providerName},{others} -b {benchmark} -l {limit}
 ```
 
 **Without comparisons:**
+
 ```bash
 cd memorybench && bun run src/index.ts run -p {providerName} -b {benchmark} -l {limit}
 ```
@@ -280,27 +321,33 @@ cd memorybench && bun run src/index.ts run -p {providerName} -b {benchmark} -l {
 (Omit `-l {limit}` if user selected "full")
 
 **IMPORTANT INSTRUCTIONS FOR RUNNING:**
-1. Use Bash tool with `run_in_background: false` (or omit the parameter) so the command runs synchronously
+
+1. Use Bash tool with `run_in_background: false` (or omit the parameter) so the
+   command runs synchronously
 2. Set a long timeout (e.g., `timeout: 600000` for 10 minutes)
 3. DO NOT poll with BashOutput repeatedly - let the command complete on its own
 4. The benchmark will show progress automatically in its output
 5. Only when the command fully completes, proceed to Step 10
 
 **Alternative if synchronous doesn't work:**
+
 1. Use `run_in_background: true`
-2. Tell the user "The benchmark is running in the background (typically takes 5-15 minutes depending on test size)"
+2. Tell the user "The benchmark is running in the background (typically takes
+   5-15 minutes depending on test size)"
 3. Use BashOutput ONCE after an appropriate wait time to get final results
 4. Do NOT repeatedly poll for progress updates
 
 ### Step 10: Present Results
 
 When the benchmark completes, parse the final output and present:
+
 - Accuracy scores for each provider
 - Latency metrics
 - Key findings and comparisons
 - Suggested next steps
 
 Look for sections in the output like:
+
 - "COMPARISON RESULTS" or "Final Report"
 - Accuracy percentages
 - Average latencies
@@ -308,14 +355,17 @@ Look for sections in the output like:
 
 ## Reference Documentation
 
-- [Provider Template](references/provider-template.md) - Code templates and interface details
+- [Provider Template](references/provider-template.md) - Code templates and
+  interface details
 - [Benchmarks](references/benchmarks.md) - Dataset details and characteristics
-- [Data Formats](references/data-formats.md) - UnifiedSession structure and transformations
+- [Data Formats](references/data-formats.md) - UnifiedSession structure and
+  transformations
 - [Debugging](references/debugging.md) - Common issues and solutions
 
 ## Success Criteria
 
 The skill completes successfully when:
+
 1. ✅ Provider adapter generated and registered
 2. ✅ Validation test passes (single question works)
 3. ✅ Full benchmark completes without errors

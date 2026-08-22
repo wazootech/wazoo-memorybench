@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
 interface CircularProgressProps {
-  progress: number // 0 to 1
-  size?: number
-  strokeWidth?: number
-  showPercentage?: boolean
+  progress: number; // 0 to 1
+  size?: number;
+  strokeWidth?: number;
+  showPercentage?: boolean;
 }
 
 export function CircularProgress({
@@ -13,9 +13,9 @@ export function CircularProgress({
   strokeWidth = 2.5,
   showPercentage = false,
 }: CircularProgressProps) {
-  const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - progress * circumference
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - progress * circumference;
 
   return (
     <svg
@@ -63,5 +63,5 @@ export function CircularProgress({
         </text>
       )}
     </svg>
-  )
+  );
 }

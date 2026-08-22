@@ -1,15 +1,15 @@
-"use client"
+"use client";
 
-import { useState, ReactNode } from "react"
+import { ReactNode, useState } from "react";
 
 interface TooltipProps {
-  content: ReactNode
-  children: ReactNode
-  className?: string
+  content: ReactNode;
+  children: ReactNode;
+  className?: string;
 }
 
 export function Tooltip({ content, children, className = "" }: TooltipProps) {
-  const [show, setShow] = useState(false)
+  const [show, setShow] = useState(false);
 
   return (
     <div
@@ -27,5 +27,5 @@ export function Tooltip({ content, children, className = "" }: TooltipProps) {
         </div>
       )}
     </div>
-  )
+  );
 }

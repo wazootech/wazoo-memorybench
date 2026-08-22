@@ -11,4 +11,5 @@ This repository contains Worlds client memory benchmarking and smoke workflows.
 - Use `package.json` scripts for tests, smoke checks, and formatting.
 - Do not present benchmark numbers as comparable unless the methodology and
   environment match.
-- Before finishing, summarize which checks ran and whether results are local-only.
+- Before finishing, summarize which checks ran and whether results are
+  local-only.

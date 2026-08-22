@@ -1,4 +1,4 @@
-import { cli } from "./cli"
+import { cli } from "./cli";
 
-const args = process.argv.slice(2)
-cli(args).catch(console.error)
+const args = process.argv.slice(2);
+cli(args).catch(console.error);

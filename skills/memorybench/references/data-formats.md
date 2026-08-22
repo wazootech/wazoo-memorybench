@@ -1,25 +1,27 @@
 # Data Formats Reference
 
-This document explains the data structures used in MemoryBench and how to transform them for your memory system.
+This document explains the data structures used in MemoryBench and how to
+transform them for your memory system.
 
 ## UnifiedSession Format
 
-MemoryBench uses a standardized format for all benchmark data called `UnifiedSession`.
+MemoryBench uses a standardized format for all benchmark data called
+`UnifiedSession`.
 
 ### TypeScript Definition
 
 ```typescript
 interface UnifiedSession {
-  sessionId: string
+  sessionId: string;
   messages: Array<{
-    role: 'user' | 'assistant'
-    content: string
-  }>
+    role: "user" | "assistant";
+    content: string;
+  }>;
   metadata?: {
-    date?: string           // ISO 8601 format: "2024-01-15T10:30:00Z"
-    formattedDate?: string  // Human readable: "January 15, 2024"
-    [key: string]: unknown  // Additional benchmark-specific metadata
-  }
+    date?: string; // ISO 8601 format: "2024-01-15T10:30:00Z"
+    formattedDate?: string; // Human readable: "January 15, 2024"
+    [key: string]: unknown; // Additional benchmark-specific metadata
+  };
 }
 ```
 
@@ -31,27 +33,28 @@ const session: UnifiedSession = {
   messages: [
     {
       role: "user",
-      content: "I'm planning a trip to Japan in March. Any recommendations?"
+      content: "I'm planning a trip to Japan in March. Any recommendations?",
     },
     {
       role: "assistant",
-      content: "March is a great time to visit Japan! Cherry blossoms typically bloom..."
+      content:
+        "March is a great time to visit Japan! Cherry blossoms typically bloom...",
     },
     {
       role: "user",
-      content: "What about hotels in Tokyo?"
+      content: "What about hotels in Tokyo?",
     },
     {
       role: "assistant",
-      content: "For Tokyo, I'd recommend staying in Shibuya or Shinjuku..."
-    }
+      content: "For Tokyo, I'd recommend staying in Shibuya or Shinjuku...",
+    },
   ],
   metadata: {
     date: "2024-01-15T10:30:00Z",
     formattedDate: "January 15, 2024",
-    userId: "user_123"
-  }
-}
+    userId: "user_123",
+  },
+};
 ```
 
 ## Common Transformation Patterns
@@ -65,14 +68,14 @@ Convert the entire session to a single text string:
 ```typescript
 function formatAsPlainText(session: UnifiedSession): string {
   const conversation = session.messages
-    .map(msg => `${msg.role.toUpperCase()}: ${msg.content}`)
-    .join('\n\n')
+    .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
+    .join("\n\n");
 
   const datePrefix = session.metadata?.formattedDate
     ? `Date: ${session.metadata.formattedDate}\n\n`
-    : ''
+    : "";
 
-  return `${datePrefix}${conversation}`
+  return `${datePrefix}${conversation}`;
 }
 
 // Result:
@@ -90,14 +93,14 @@ Serialize the session to JSON:
 ```typescript
 function formatAsJSON(session: UnifiedSession): string {
   const sessionStr = JSON.stringify(session.messages, null, 2)
-    .replace(/</g, "&lt;")   // Escape HTML for safety
-    .replace(/>/g, "&gt;")
+    .replace(/</g, "&lt;") // Escape HTML for safety
+    .replace(/>/g, "&gt;");
 
   const datePrefix = session.metadata?.formattedDate
     ? `Session Date: ${session.metadata.formattedDate}\n\n`
-    : ''
+    : "";
 
-  return `${datePrefix}Session Data:\n${sessionStr}`
+  return `${datePrefix}Session Data:\n${sessionStr}`;
 }
 
 // Result:
@@ -119,16 +122,16 @@ Include all metadata fields:
 
 ```typescript
 function formatWithMetadata(session: UnifiedSession): string {
-  const metadata = session.metadata || {}
+  const metadata = session.metadata || {};
   const metadataStr = Object.entries(metadata)
     .map(([key, value]) => `${key}: ${value}`)
-    .join('\n')
+    .join("\n");
 
   const conversation = session.messages
-    .map(msg => `${msg.role}: ${msg.content}`)
-    .join('\n\n')
+    .map((msg) => `${msg.role}: ${msg.content}`)
+    .join("\n\n");
 
-  return `Session: ${session.sessionId}\n${metadataStr}\n\n${conversation}`
+  return `Session: ${session.sessionId}\n${metadataStr}\n\n${conversation}`;
 }
 
 // Result:
@@ -146,19 +149,19 @@ Readable markdown structure:
 
 ```typescript
 function formatAsMarkdown(session: UnifiedSession): string {
-  const date = session.metadata?.formattedDate || 'Unknown date'
+  const date = session.metadata?.formattedDate || "Unknown date";
 
-  const conversation = session.messages.map(msg => {
-    const speaker = msg.role === 'user' ? '**User**' : '*Assistant*'
-    return `${speaker}: ${msg.content}`
-  }).join('\n\n')
+  const conversation = session.messages.map((msg) => {
+    const speaker = msg.role === "user" ? "**User**" : "*Assistant*";
+    return `${speaker}: ${msg.content}`;
+  }).join("\n\n");
 
   return `# Session: ${session.sessionId}
 *Date: ${date}*
 
 ## Conversation
 
-${conversation}`
+${conversation}`;
 }
 
 // Result:
@@ -178,8 +181,8 @@ Split into individual messages (if your system prefers granular storage):
 
 ```typescript
 function formatAsMessages(session: UnifiedSession): Array<{
-  content: string
-  metadata: Record<string, unknown>
+  content: string;
+  metadata: Record<string, unknown>;
 }> {
   return session.messages.map((msg, idx) => ({
     content: msg.content,
@@ -189,8 +192,8 @@ function formatAsMessages(session: UnifiedSession): Array<{
       role: msg.role,
       date: session.metadata?.date,
       formattedDate: session.metadata?.formattedDate,
-    }
-  }))
+    },
+  }));
 }
 
 // Result: Array of individual message objects
@@ -241,13 +244,13 @@ Your provider's `search()` method returns results. Common formats:
 
 ```typescript
 interface SearchResult {
-  id: string
-  content: string
+  id: string;
+  content: string;
   metadata: {
-    sessionId: string
-    date?: string
-    score?: number
-  }
+    sessionId: string;
+    date?: string;
+    score?: number;
+  };
 }
 
 // Example:
@@ -258,20 +261,20 @@ interface SearchResult {
     metadata: {
       sessionId: "session_42",
       date: "2024-01-15T10:30:00Z",
-      score: 0.87
-    }
-  }
-]
+      score: 0.87,
+    },
+  },
+];
 ```
 
 ### Format 2: Memory Objects
 
 ```typescript
 interface MemoryResult {
-  memory: string
-  context?: string
-  relevance: number
-  timestamp?: string
+  memory: string;
+  context?: string;
+  relevance: number;
+  timestamp?: string;
 }
 
 // Example:
@@ -280,9 +283,9 @@ interface MemoryResult {
     memory: "User is planning a trip to Japan in March",
     context: "From conversation on January 15, 2024",
     relevance: 0.92,
-    timestamp: "2024-01-15T10:30:00Z"
-  }
-]
+    timestamp: "2024-01-15T10:30:00Z",
+  },
+];
 ```
 
 ### Format 3: Simple Array
@@ -297,7 +300,8 @@ interface MemoryResult {
 
 ## Custom Prompts for Search Results
 
-If your search results have a special format, you may need custom prompts to format them for the LLM.
+If your search results have a special format, you may need custom prompts to
+format them for the LLM.
 
 ### Default Prompt Behavior
 
@@ -305,8 +309,8 @@ MemoryBench's default answer prompt does this:
 
 ```typescript
 const formattedContext = context.map((item, idx) => {
-  return `[${idx + 1}] ${JSON.stringify(item)}`
-}).join('\n\n')
+  return `[${idx + 1}] ${JSON.stringify(item)}`;
+}).join("\n\n");
 ```
 
 This works but may not be optimal for your format.
@@ -317,35 +321,39 @@ Create `prompts.ts` to format your results better:
 
 ```typescript
 export const MY_PROMPTS: ProviderPrompts = {
-  answerPrompt: (question: string, context: unknown[], questionDate?: string) => {
+  answerPrompt: (
+    question: string,
+    context: unknown[],
+    questionDate?: string,
+  ) => {
     // Cast to your format
     const results = context as Array<{
-      memory: string
-      relevance: number
-      timestamp?: string
-    }>
+      memory: string;
+      relevance: number;
+      timestamp?: string;
+    }>;
 
     // Format nicely
     const formattedContext = results.map((item, idx) => {
       const date = item.timestamp
         ? `\nDate: ${new Date(item.timestamp).toLocaleDateString()}`
-        : ''
-      const score = `\nRelevance: ${(item.relevance * 100).toFixed(0)}%`
+        : "";
+      const score = `\nRelevance: ${(item.relevance * 100).toFixed(0)}%`;
 
-      return `[Memory ${idx + 1}]${date}${score}\n${item.memory}`
-    }).join('\n\n---\n\n')
+      return `[Memory ${idx + 1}]${date}${score}\n${item.memory}`;
+    }).join("\n\n---\n\n");
 
     return `Question: ${question}
-${questionDate ? `Asked on: ${questionDate}` : ''}
+${questionDate ? `Asked on: ${questionDate}` : ""}
 
 Retrieved Memories:
 ${formattedContext}
 
 Answer the question based only on the memories above.
 
-Answer:`
-  }
-}
+Answer:`;
+  },
+};
 ```
 
 ## Container Tags
@@ -354,18 +362,19 @@ MemoryBench uses `containerTag` to isolate benchmark runs:
 
 ```typescript
 interface IngestOptions {
-  containerTag: string  // e.g., "run_abc123_locomo"
-  metadata?: Record<string, unknown>
+  containerTag: string; // e.g., "run_abc123_locomo"
+  metadata?: Record<string, unknown>;
 }
 
 interface SearchOptions {
-  containerTag: string  // Same as ingestion
-  limit?: number
-  threshold?: number
+  containerTag: string; // Same as ingestion
+  limit?: number;
+  threshold?: number;
 }
 ```
 
 Your provider should:
+
 1. Store the containerTag with each ingested document
 2. Filter search results by containerTag
 3. Support clearing data by containerTag (optional)
@@ -403,36 +412,43 @@ Temporal context is especially important for LoCoMo benchmark:
 
 ```typescript
 function formatWithDate(session: UnifiedSession): string {
-  const date = session.metadata?.formattedDate
+  const date = session.metadata?.formattedDate;
   if (date) {
-    return `This conversation took place on ${date}.\n\n${formatConversation(session)}`
+    return `This conversation took place on ${date}.\n\n${
+      formatConversation(session)
+    }`;
   }
-  return formatConversation(session)
+  return formatConversation(session);
 }
 ```
 
 ### Date in Metadata vs Content
 
 **Metadata approach:**
+
 ```typescript
 await this.client.add({
   content: formatConversation(session),
   metadata: {
-    date: session.metadata?.date,  // ISO format for filtering
+    date: session.metadata?.date, // ISO format for filtering
     sessionId: session.sessionId,
-  }
-})
+  },
+});
 ```
 
 **Content approach:**
+
 ```typescript
 await this.client.add({
-  content: `Date: ${session.metadata?.formattedDate}\n\n${formatConversation(session)}`,
-  metadata: { sessionId: session.sessionId }
-})
+  content: `Date: ${session.metadata?.formattedDate}\n\n${
+    formatConversation(session)
+  }`,
+  metadata: { sessionId: session.sessionId },
+});
 ```
 
-**Recommendation:** Include date in BOTH content (for LLM understanding) and metadata (for filtering/sorting).
+**Recommendation:** Include date in BOTH content (for LLM understanding) and
+metadata (for filtering/sorting).
 
 ## Best Practices
 
@@ -466,6 +482,7 @@ async ingest(sessions: UnifiedSession[], options: IngestOptions) {
 ```
 
 Check logs to ensure:
+
 - Dates are included correctly
 - Content is properly formatted
 - No data loss in transformation
