@@ -15,6 +15,8 @@ A pluggable benchmarking framework for evaluating memory and context systems.
 
 <img width="3584" height="2154" alt="original" src="https://github.com/user-attachments/assets/7fe49b7e-ed0b-4861-92a5-fa5d199cfc72" />
 
+> Evals Sponsored by [The Little AI Company](https://github.com/The-Little-AI-Company)
+
 ## Features
 
 - 🔌 Interoperable: mix and match any provider with any benchmark
