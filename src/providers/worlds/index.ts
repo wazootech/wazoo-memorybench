@@ -20,6 +20,7 @@ import { GEMINI_EMBEDDING_DIMENSIONS, GeminiEmbeddingService } from "./gemini-em
 import { OpenAIEmbeddingService } from "./openai-embedding-service"
 import { CachedEmbeddingService } from "./cached-embedding-service"
 import { extractFactsToTurtle } from "./extraction"
+import { dedupeRankedById, sortRankedByScore } from "./search-contract"
 
 /**
  * WorldsProvider implements the Provider interface for @worlds/sdk.
@@ -254,6 +255,8 @@ export class WorldsProvider implements Provider {
       queryFactClaims(client, query),
     ])
 
+    // Ranked messages first (score = retrieval relevance only, contract D8),
+    // then SPARQL fact claims as a downstream, unscored complement.
     const first10 = searchResults.slice(0, 10)
     const rest = searchResults.slice(10)
     const searchCorpus = first10.map((r) => (r.text ?? "").toLowerCase()).join("\n")
@@ -283,9 +286,13 @@ type SearchResponse = Awaited<ReturnType<WorldsSdkInterface["search"]>>
 type SearchResult = NonNullable<SearchResponse["results"]>[number]
 
 interface EnrichedSearchResult {
+  /** Deterministic search-result id (shared across backends via buildSearchResultId). */
+  id: string
+  /** Graph session URI the result belongs to (resolved via SPARQL enrichment). */
   sessionId: string
   text: string
-  score: number
+  /** Null when the result is unranked (fallback mode). */
+  score: number | null
   subject: string
   predicate: string
   graph: string
@@ -304,7 +311,11 @@ async function enrichSearchResults(
   results: SearchResult[]
 ): Promise<EnrichedSearchResult[]> {
   const base: EnrichedSearchResult[] = results.map((r) => ({
-    sessionId: r.id,
+    id: r.id,
+    // Best local proxy before enrichment: the message URI embeds the session
+    // (`urn:session:<id>/msg/<idx>`). Enrichment replaces it with the real
+    // session URI once the graph join resolves.
+    sessionId: r.subject,
     text: r.text,
     score: r.score,
     subject: r.subject,
@@ -318,7 +329,7 @@ async function enrichSearchResults(
   const valuesClause = msgUris.map((uri) => `<${uri}>`).join(" ")
 
   const query = `
-    SELECT ?msg ?date ?speaker ?speakerA ?speakerB WHERE {
+    SELECT ?msg ?session ?date ?speaker ?speakerA ?speakerB WHERE {
       VALUES ?msg { ${valuesClause} }
       ?msg <${PROV.wasGeneratedBy}> ?session .
       ?session <${SCHEMA.dateCreated}> ?date .
@@ -335,7 +346,13 @@ async function enrichSearchResults(
 
     const metaMap = new Map<
       string,
-      { date?: string; speaker?: string; speakerA?: string; speakerB?: string }
+      {
+        session?: string
+        date?: string
+        speaker?: string
+        speakerA?: string
+        speakerB?: string
+      }
     >()
 
     const str = (v?: { value: string | object }): string | undefined =>
@@ -345,6 +362,7 @@ async function enrichSearchResults(
       const msgUri = str(binding.msg)
       if (!msgUri) continue
       metaMap.set(msgUri, {
+        session: str(binding.session),
         date: str(binding.date),
         speaker: str(binding.speaker),
         speakerA: str(binding.speakerA),
@@ -355,6 +373,9 @@ async function enrichSearchResults(
     for (const r of base) {
       const meta = metaMap.get(r.subject)
       if (meta) {
+        // The contract's `id` is a per-result deterministic id, not a session
+        // reference — resolve the real session URI from the graph instead.
+        if (meta.session) r.sessionId = meta.session
         r.sessionDate = meta.date
         r.speaker = meta.speaker
         r.speakerA = meta.speakerA
@@ -542,6 +563,10 @@ async function runFactClaimSparql(
  * Queries extracted fact claims via SPARQL: entity-aware matching on
  * subject/action/object/claimText, AND-first on keywords for precision,
  * OR fallback for recall. LIMIT 8 for latency.
+ *
+ * Fact claims are a downstream complement to ranked search (contract D8):
+ * they are merged AFTER ranking and carry no search score — relevance scoring
+ * never applies here.
  */
 async function queryFactClaims(
   client: WorldsSdkInterface,
@@ -587,9 +612,11 @@ async function runSearch(client: WorldsSdkInterface, query: string): Promise<Sea
 /**
  * Try the full query first. FTS5 uses AND between terms after stopword
  * removal, so long natural-language questions often match nothing.
- * Fall back to per-term OR-style search and merge via best-score dedup.
- * With embeddings active the primary hybrid search handles most queries
- * directly, but the fallback still catches degraded keyword-only mode.
+ * Fall back to per-term OR-style search and merge via best-score dedup on
+ * the contract's deterministic `id` (worlds-api#30), re-ranked by score.
+ *
+ * Local SDK backends emit no `mode` signal and are treated as ranked. Scores
+ * here are retrieval relevance only (contract D8) — never answer quality.
  */
 async function searchWithFallback(
   client: WorldsSdkInterface,
@@ -604,17 +631,12 @@ async function searchWithFallback(
   const terms = extractContentTerms(query)
   if (terms.length <= 1) return results
 
-  const seen = new Map<string, SearchResult>()
+  const termResults: SearchResult[] = []
   for (const term of terms) {
-    for (const r of await runSearch(client, term)) {
-      const existing = seen.get(r.id)
-      if (!existing || r.score > existing.score) {
-        seen.set(r.id, r)
-      }
-    }
+    termResults.push(...(await runSearch(client, term)))
   }
 
-  const merged = [...seen.values()].sort((a, b) => b.score - a.score).slice(0, 100)
+  const merged = sortRankedByScore(dedupeRankedById(termResults)).slice(0, 100)
   logger.info(
     `Worlds search broadened: "${query.slice(
       0,
