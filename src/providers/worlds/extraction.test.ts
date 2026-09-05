@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test"
 import { claimsToTurtle, type ExtractedClaim } from "./extraction"
 import { validateShaclGraph } from "./shapes"
-import { PROV, RDF, SCHEMA } from "./ontology"
+import { PROV, RDF, SCHEMA, WORLDS } from "./ontology"
 
 describe("claimsToTurtle", () => {
   it("converts domain Event claims into direct schema:Event quads with provenance and text", async () => {
@@ -95,6 +95,30 @@ describe("claimsToTurtle", () => {
     expect(turtle).toContain(
       `<urn:person:session-100/charlie> <${PROV.wasDerivedFrom}> <urn:session:session-100> .`
     )
+
+    const shacl = await validateShaclGraph(turtle)
+    expect(shacl.valid).toBe(true)
+    expect(shacl.errors).toHaveLength(0)
+  })
+
+  it("types Person-domain claims as claims, not schema:Person, and passes SHACL", async () => {
+    const claims: ExtractedClaim[] = [
+      {
+        domainClass: "Person",
+        subject: "Anna",
+        action: "works as",
+        object: "a nurse at Harborview Medical Center",
+        claimText: "Anna works as a nurse at Harborview Medical Center.",
+      },
+    ]
+
+    const turtle = claimsToTurtle(claims, "session-48")
+
+    // The claim node must stay in the worlds:Claim hierarchy: typing it
+    // schema:Person would trigger PERSON_SHAPE, which requires schema:name.
+    expect(turtle).toContain(`<urn:claim:session-48/0> <${RDF.type}> <${WORLDS.FactClaim}> .`)
+    expect(turtle).toContain(`<urn:claim:session-48/0> <${RDF.type}> <${WORLDS.Claim}> .`)
+    expect(turtle).not.toContain(`<urn:claim:session-48/0> <${RDF.type}> <${SCHEMA.Person}> .`)
 
     const shacl = await validateShaclGraph(turtle)
     expect(shacl.valid).toBe(true)
