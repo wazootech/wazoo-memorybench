@@ -1,8 +1,8 @@
 import { mkdir, rm } from "node:fs/promises"
 import { join } from "node:path"
-import { createClient } from "@libsql/client"
+import { Database } from "bun:sqlite"
 import type { WorldsSdkInterface } from "@worlds/sdk"
-import { createLibsqlWorldsSdk } from "@worlds/libsql"
+import { createSqliteWorldsSdk } from "@worlds/sqlite"
 import type {
   IndexingProgressCallback,
   IngestOptions,
@@ -27,8 +27,8 @@ import { dedupeRankedById, sortRankedByScore } from "./search-contract"
  *
  * @worlds/sdk is a graph-backed memory store with RDF import, semantic
  * search, and SPARQL query capabilities. This provider uses file-backed
- * LibSQL databases so completed ingest/index phases can be reused when a run
- * is resumed.
+ * SQLite databases (bun:sqlite) so completed ingest/index phases can be
+ * reused when a run is resumed.
  */
 
 export class WorldsProvider implements Provider {
@@ -50,7 +50,9 @@ export class WorldsProvider implements Provider {
     await mkdir(this.baseDir, { recursive: true })
     this.clients.clear()
     this.documentIds.clear()
-    logger.info(`Initialized Worlds provider with file-backed LibSQL at ${this.baseDir}`)
+    logger.info(
+      `Initialized Worlds provider with file-backed SQLite (bun:sqlite) at ${this.baseDir}`
+    )
   }
 
   /** Exposed for agent tool-calling scripts that need direct SPARQL access. */
@@ -64,7 +66,7 @@ export class WorldsProvider implements Provider {
 
     await mkdir(this.baseDir, { recursive: true })
     const dbPath = join(this.baseDir, `${sanitizePath(containerTag)}.db`)
-    const libsqlClient = createClient({ url: `file:${dbPath}` })
+    const db = new Database(dbPath)
 
     const useOpenAIOrOllama =
       Boolean(process.env.OPENAI_BASE_URL) ||
@@ -106,13 +108,15 @@ export class WorldsProvider implements Provider {
         )
       : undefined
 
-    // createLibsqlWorldsSdk wires the in-house WazooSparqlEngine over the
-    // hexastore-backed LibsqlStore automatically (the Comunica/traqula
-    // closure silently broke every query in #23; the Wazoo engine is
-    // W3C-gated 345/345 SPARQL 1.1, 249/249 SPARQL 1.2, 41/41 RDF 1.2
-    // triple terms — see #25).
-    const client = await createLibsqlWorldsSdk({
-      client: libsqlClient,
+    // createSqliteWorldsSdk wires the in-house WazooSparqlEngine over the
+    // bun:sqlite-backed SqliteStore (the Comunica/traqula closure silently
+    // broke every query in #23; the Wazoo engine is W3C-gated 345/345
+    // SPARQL 1.1, 249/249 SPARQL 1.2, 41/41 RDF 1.2 triple terms — see
+    // #25). The db handle is the developer-supplied bun:sqlite Database;
+    // the SDK owns it and close() releases it.
+    const client = await createSqliteWorldsSdk({
+      path: dbPath,
+      db,
       embeddingService: cachedEmbeddingService,
       vectorDimensions: embeddingService ? 768 : undefined,
       searchIndexOnImport: "disabled",

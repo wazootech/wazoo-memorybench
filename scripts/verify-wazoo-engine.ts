@@ -1,16 +1,16 @@
 /**
  * Interface-parity + perf verification for the #25 Comunica→Wazoo engine swap.
  *
- * Opens each of the 5 smoke LibSQL DBs (conv-26-q0..q4-smoke-ds-001) through
- * the same `createLibsqlWorldsSdk` path WorldsProvider uses, runs the
+ * Opens each of the 5 smoke SQLite DBs (conv-26-q0..q4-smoke-ds-001) through
+ * the same `createSqliteWorldsSdk` path WorldsProvider uses, runs the
  * harness's real query surface through the Wazoo engine, asserts the
  * expected shapes/results, and times representative queries for the perf
  * checklist item.
  *
  * Usage: bun run scripts/verify-wazoo-engine.ts
  */
-import { createClient } from "@libsql/client";
-import { createLibsqlWorldsSdk } from "@worlds/libsql";
+import { Database } from "bun:sqlite";
+import { createSqliteWorldsSdk } from "@worlds/sqlite";
 import { join } from "node:path";
 
 const DB_DIR = join(process.cwd(), "data", "providers", "worlds");
@@ -74,10 +74,11 @@ async function main(): Promise<void> {
 
   for (const dbName of DB_NAMES) {
     const dbPath = join(DB_DIR, `${dbName}.db`);
-    const libsqlClient = createClient({ url: `file:${dbPath}` });
-    const client = await createLibsqlWorldsSdk({
-      client: libsqlClient,
-      // Wazoo engine — the #25 swap under test (wired by createLibsqlWorldsSdk).
+    const db = new Database(dbPath);
+    const client = await createSqliteWorldsSdk({
+      path: dbPath,
+      db,
+      // Wazoo engine — the #25 swap under test (wired by createSqliteWorldsSdk).
     });
 
     console.log(`\n=== ${dbName} ===`);
@@ -166,7 +167,7 @@ async function main(): Promise<void> {
       }
     }
 
-    libsqlClient.close();
+    db.close();
   }
 
   console.log(`\n=== totals ===`);
