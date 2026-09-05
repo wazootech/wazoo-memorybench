@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import type { EmbeddingService } from "@worlds/sdk/search-index/embedding-service"
 import { logger } from "../../utils/logger"
+import { sanitizePathSegment } from "./cache-path"
 
 const CACHE_ROOT = join(process.cwd(), "data", "cache", "embeddings")
 
@@ -12,7 +13,14 @@ interface CachedVector {
 }
 
 function fileFor(root: string, label: string, hash: string): string {
-  return join(root, label, `${hash}.json`)
+  // The label is `{provider}/{model}` (plus an endpoint-scope hash) used as
+  // nested dirs; sanitize each segment so model tags like "qwen2.5-coder:7b"
+  // survive on Windows (see #48).
+  return join(
+    root,
+    ...label.split("/").map((segment) => sanitizePathSegment(segment)),
+    `${hash}.json`
+  )
 }
 
 async function tryRead(file: string): Promise<Float32Array | null> {
