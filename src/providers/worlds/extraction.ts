@@ -7,6 +7,7 @@ import { generateText } from "ai"
 import type { UnifiedSession } from "../../types/unified"
 import { PROV, RDF, SCHEMA, TURTLE_PREFIXES, WORLDS } from "./ontology"
 import { validateShaclGraph } from "./shapes"
+import { sanitizePathSegment } from "./cache-path"
 import { logger } from "../../utils/logger"
 
 const EXTRACTION_MODEL = "gemini-2.5-flash"
@@ -336,9 +337,13 @@ export async function extractFactsToTurtle(
   const cacheDir = options?.cacheDir
   // Model-qualified key: {cacheDir}/{provider}/{model}/{hash}.json so a
   // provider/model swap misses instead of reusing stale extraction output.
+  // Segments are sanitized for Windows: model tags like "qwen2.5-coder:7b"
+  // contain ":", which is illegal in Windows dir names (see #48).
   const provider = resolveExtractionProvider(options)
   const model = resolveExtractionModel(provider, options)
-  const cacheFile = cacheDir ? join(cacheDir, provider, model, `${hash}.json`) : undefined
+  const cacheFile = cacheDir
+    ? join(cacheDir, sanitizePathSegment(provider), sanitizePathSegment(model), `${hash}.json`)
+    : undefined
 
   if (cacheFile) {
     try {
