@@ -46,11 +46,13 @@ const CLAIM_TYPE_MAP: Record<string, string> = {
   preference: WORLDS.PreferenceClaim,
   relationship: WORLDS.RelationshipClaim,
   plan: WORLDS.PlanClaim,
-  Person: SCHEMA.Person,
-  Event: SCHEMA.Event,
-  Action: SCHEMA.Action,
-  MedicalCondition: SCHEMA.MedicalCondition,
-  Organization: SCHEMA.Organization,
+  // A claim about a person (job, skill, location, age) is a fact about that
+  // person, not the schema:Person entity itself. Typing the claim node
+  // schema:Person would trip PERSON_SHAPE, which demands schema:name. Keep
+  // schema classes out of this map: dedicated branches above emit the real
+  // schema nodes (Event/Action/MedicalCondition/Organization), and anything
+  // else reaching the claim branch must stay in the worlds:Claim hierarchy.
+  Person: WORLDS.FactClaim,
 }
 
 export interface ExtractedClaim {
