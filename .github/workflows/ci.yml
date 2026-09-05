@@ -13,3 +13,16 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run format:check
       - run: bunx tsc --noEmit
+
+  # Windows leg: pins the bun:sqlite backend behavior that ubuntu CI cannot
+  # cover: sqlite-vec's win32 prebuilt (vec0.dll) loading through
+  # bun:sqlite's loadExtension, and hybrid search returning rows through it
+  # (src/providers/worlds/bun-sqlite-vec0.test.ts). The rest of the suite
+  # runs here too so Windows-specific runtime breakage surfaces on every PR.
+  verify-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun test
