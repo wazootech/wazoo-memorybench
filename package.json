@@ -7,7 +7,8 @@
     "test": "bun test",
     "worlds-agent-smoke": "bun run scripts/worlds-agent-smoke.ts",
     "format": "prettier --write \"src/**/*.ts\" \"ui/**/*.tsx\" \"ui/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"ui/**/*.tsx\" \"ui/**/*.ts\""
+    "format:check": "prettier --check \"src/**/*.ts\" \"ui/**/*.tsx\" \"ui/**/*.ts\"",
+    "smoke:extraction": "bun run scripts/smoke-extraction.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.56",

@@ -131,9 +131,39 @@ function slugify(text: string): string {
 }
 
 /**
+ * Content-based claim dedupe: claims with the same normalized claimText are
+ * the same assertion, so only the first occurrence survives the graph build.
+ * Without this, a model that emits one assertion twice (e.g. once as a
+ * FactClaim and once as a plain Claim) produces duplicate claim nodes under
+ * different URNs.
+ */
+export function dedupeClaims(claims: ExtractedClaim[]): ExtractedClaim[] {
+  const seen = new Set<string>()
+  const kept: ExtractedClaim[] = []
+  for (const c of claims) {
+    const key = c.claimText
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .replace(/[.!?!]+$/, "")
+    if (seen.has(key)) continue
+    seen.add(key)
+    kept.push(c)
+  }
+  return kept
+}
+
+/**
  * Converts extracted claims into domain-driven RDF Turtle quads linked to their source session.
  * Constructs direct entity nodes (schema:Person, schema:Event, schema:Action, schema:MedicalCondition),
  * predicate assertions, schema:text summaries, and PROV-O provenance.
+ *
+ * The subject node is only typed schema:Person when the subject actually is
+ * the person the claim is about. Event claims whose subject names the event
+ * or venue itself (subject == where), Organization claims whose subject is
+ * the organization name, and MedicalCondition claims whose subject is the
+ * condition name get the entity node alone — minting a urn:person:/
+ * schema:Person node for them leaked orgs and events into the person class.
  */
 export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): string {
   if (claims.length === 0) return ""
@@ -147,20 +177,44 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
     const subjectSlug = slugify(c.subject)
     const personUri = `urn:person:${sessionId}/${subjectSlug}`
 
-    lines.push(`# Assertions for ${c.subject} (${domainClass})`)
-    lines.push(`<${personUri}> <${RDF.type}> <${SCHEMA.Person}> .`)
-    lines.push(`<${personUri}> <${SCHEMA.name}> "${escapeTurtle(c.subject)}" .`)
+    const isEvent = domainClass === "Event" || c.type === "event"
+    // The organization's real name: its own object when the model supplied
+    // one, otherwise the claim subject for Organization-domain claims. The
+    // old `|| "Organization"` fallback leaked the class name into the graph
+    // as a literal schema:name.
+    const orgName = c.object || (domainClass === "Organization" ? c.subject : "")
+    const isOrg =
+      Boolean(orgName) &&
+      (domainClass === "Organization" ||
+        (c.action && /works for|employed at|company/i.test(c.action)))
 
-    if (domainClass === "Event" || c.type === "event") {
+    // The subject names the entity the claim is about rather than a person
+    // actor: an Event whose subject is the venue/event itself, an
+    // Organization claim whose subject is the org name, or a
+    // MedicalCondition whose subject is the condition name.
+    const subjectIsItsOwnEntity =
+      (isEvent && Boolean(c.where) && subjectSlug === slugify(c.where!)) ||
+      (isOrg && subjectSlug === slugify(orgName)) ||
+      (domainClass === "MedicalCondition" && Boolean(c.object) && subjectSlug === slugify(c.object!))
+
+    lines.push(`# Assertions for ${c.subject} (${domainClass})`)
+    if (!subjectIsItsOwnEntity) {
+      lines.push(`<${personUri}> <${RDF.type}> <${SCHEMA.Person}> .`)
+      lines.push(`<${personUri}> <${SCHEMA.name}> "${escapeTurtle(c.subject)}" .`)
+    }
+
+    if (isEvent) {
       const eventUri = `urn:event:${sessionId}/${i}`
       lines.push(
         `<${eventUri}> <${RDF.type}> <${SCHEMA.Event}> .`,
         `<${eventUri}> <${SCHEMA.name}> "${escapeTurtle(c.claimText)}" .`,
-        `<${eventUri}> <${SCHEMA.about}> <${personUri}> .`,
         `<${eventUri}> <${SCHEMA.text}> "${escapeTurtle(c.claimText)}" .`,
         `<${eventUri}> <${WORLDS.claimText}> "${escapeTurtle(c.claimText)}" .`,
         `<${eventUri}> <${PROV.wasDerivedFrom}> <${sessionUri}> .`
       )
+      if (!subjectIsItsOwnEntity) {
+        lines.push(`<${eventUri}> <${SCHEMA.about}> <${personUri}> .`)
+      }
       if (c.status?.toLowerCase() === "postponed") {
         lines.push(`<${eventUri}> <${SCHEMA.eventStatus}> <${SCHEMA.EventPostponed}> .`)
       } else if (c.status?.toLowerCase() === "scheduled") {
@@ -197,21 +251,29 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
       if (c.object) {
         lines.push(`<${actionUri}> <${SCHEMA.object}> "${escapeTurtle(c.object)}" .`)
       }
-    } else if (
-      domainClass === "Organization" ||
-      (c.action && /works for|employed at|company/i.test(c.action))
-    ) {
-      const orgSlug = slugify(c.object || "organization")
-      const orgUri = `urn:org:${sessionId}/${orgSlug}`
+    } else if (isOrg) {
+      const orgUri = `urn:org:${sessionId}/${slugify(orgName)}`
       lines.push(
         `<${orgUri}> <${RDF.type}> <${SCHEMA.Organization}> .`,
-        `<${orgUri}> <${SCHEMA.name}> "${escapeTurtle(c.object || "Organization")}" .`,
-        `<${orgUri}> <${PROV.wasDerivedFrom}> <${sessionUri}> .`,
-        `<${personUri}> <${SCHEMA.worksFor}> <${orgUri}> .`,
-        `<${personUri}> <${SCHEMA.text}> "${escapeTurtle(c.claimText)}" .`,
-        `<${personUri}> <${WORLDS.claimText}> "${escapeTurtle(c.claimText)}" .`,
-        `<${personUri}> <${PROV.wasDerivedFrom}> <${sessionUri}> .`
+        `<${orgUri}> <${SCHEMA.name}> "${escapeTurtle(orgName)}" .`,
+        `<${orgUri}> <${PROV.wasDerivedFrom}> <${sessionUri}> .`
       )
+      if (subjectIsItsOwnEntity) {
+        // Subject IS the organization (the model put the org in `subject`):
+        // attach the assertion to the org node itself; there is no person
+        // node to hang worksFor on.
+        lines.push(
+          `<${orgUri}> <${SCHEMA.text}> "${escapeTurtle(c.claimText)}" .`,
+          `<${orgUri}> <${WORLDS.claimText}> "${escapeTurtle(c.claimText)}" .`
+        )
+      } else {
+        lines.push(
+          `<${personUri}> <${SCHEMA.worksFor}> <${orgUri}> .`,
+          `<${personUri}> <${SCHEMA.text}> "${escapeTurtle(c.claimText)}" .`,
+          `<${personUri}> <${WORLDS.claimText}> "${escapeTurtle(c.claimText)}" .`,
+          `<${personUri}> <${PROV.wasDerivedFrom}> <${sessionUri}> .`
+        )
+      }
     } else {
       const claimUri = `urn:claim:${sessionId}/${i}`
       const typeIri = CLAIM_TYPE_MAP[c.type || domainClass] || WORLDS.Claim
@@ -385,12 +447,18 @@ export async function extractFactsToTurtle(
   const valid = claims.filter(
     (c) => (c.type || c.domainClass) && c.subject && c.claimText && typeof c.claimText === "string"
   )
+  const deduped = dedupeClaims(valid)
+  if (deduped.length < valid.length) {
+    logger.debug(
+      `Deduped ${valid.length - deduped.length} duplicate claim(s) for session ${session.sessionId}`
+    )
+  }
 
   logger.debug(
-    `Extracted ${valid.length} claims from session ${session.sessionId} (${claims.length} raw)`
+    `Extracted ${deduped.length} claims from session ${session.sessionId} (${claims.length} raw)`
   )
 
-  const turtle = claimsToTurtle(valid, session.sessionId)
+  const turtle = claimsToTurtle(deduped, session.sessionId)
 
   if (turtle) {
     const shaclResult = await validateShaclGraph(turtle)

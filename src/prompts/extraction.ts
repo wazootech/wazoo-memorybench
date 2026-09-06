@@ -117,7 +117,7 @@ ${conversation}
 
 Extract each item as a JSON object with these fields:
 - "domainClass": one of "Person", "Event", "Action", "MedicalCondition", "Organization", "Preference", "Relationship", "Fact"
-- "subject": primary entity name (e.g. "${speakerA}", "${speakerB}", "Wazoo Tech")
+- "subject": the PERSON the assertion is about (e.g. "${speakerA}", "${speakerB}") — for Organization, Event, and MedicalCondition items, still use the person as "subject" and put the organization/event/condition name in "object" (e.g. "Harborview Medical Center", "asylum decision", "asthma"), never in "subject"
 - "action": (optional) predicate or verb phrase (e.g. "applied for", "works as", "suffers from", "knows", "enjoys")
 - "object": (optional) target entity, role, detail, or duration
 - "claimText": a single self-contained sentence summarizing this assertion (must be independently searchable and include all key entities/dates)
@@ -128,6 +128,8 @@ Extract each item as a JSON object with these fields:
 Rules:
 - Extract ONLY explicitly stated information
 - Use speakers' actual names ("${speakerA}", "${speakerB}"), never generic "the user" or "the assistant"
+- Each distinct assertion exactly once — never emit the same fact twice under different classifications
+- For Organization items, "object" MUST be the organization's actual name (e.g. "Harborview Medical Center"), never a generic word like "organization" or "company"
 - Resolve all relative temporal expressions ("yesterday", "last year", "over a year") relative to ${date}
 - Each claimText MUST be a complete, self-contained searchable sentence (e.g., "${speakerA} waited over a year for their asylum application to get approved.")
 - Classify real-world entities accurately (e.g., asylum application -> Event, nurse/engineer -> Person/Job, hospital visit -> Event/MedicalCondition)

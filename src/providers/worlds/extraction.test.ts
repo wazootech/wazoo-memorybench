@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import { DataFactory, Parser, Store } from "n3"
-import { claimsToTurtle, type ExtractedClaim } from "./extraction"
+import { claimsToTurtle, dedupeClaims, type ExtractedClaim } from "./extraction"
 import { validateShaclGraph } from "./shapes"
 import { PROV, RDF, SCHEMA, WORLDS } from "./ontology"
 
@@ -124,6 +124,83 @@ describe("claimsToTurtle", () => {
     const shacl = await validateShaclGraph(turtle)
     expect(shacl.valid).toBe(true)
     expect(shacl.errors).toHaveLength(0)
+  })
+
+  it("does not mint a urn:person:/schema:Person node when the subject is the venue or organization itself", async () => {
+    const claims: ExtractedClaim[] = [
+      {
+        domainClass: "Event",
+        subject: "Harborview charity gala",
+        claimText: "Melanie and Anna met at the Harborview charity gala in June.",
+        when: "2026-06",
+        where: "Harborview charity gala",
+      },
+      {
+        domainClass: "Organization",
+        subject: "Harborview Medical Center",
+        claimText: "Harborview Medical Center is the employer of Melanie.",
+      },
+    ]
+
+    const turtle = claimsToTurtle(claims, "session-self")
+
+    // No person URNs may exist for the venue or the organization...
+    expect(turtle).not.toContain("<urn:person:session-self/harborview-charity-gala>")
+    expect(turtle).not.toContain("<urn:person:session-self/harborview-medical-center>")
+    expect(turtle).not.toContain(`<${SCHEMA.Person}>`)
+
+    // ...and the org node must carry the org's real name, never the class
+    // name leaked in as a literal schema:name.
+    expect(turtle).toContain(
+      `<urn:org:session-self/harborview-medical-center> <${SCHEMA.name}> "Harborview Medical Center" .`
+    )
+    expect(turtle).not.toContain(`<${SCHEMA.name}> "Organization" .`)
+
+    const shacl = await validateShaclGraph(turtle)
+    expect(shacl.valid).toBe(true)
+    expect(shacl.errors).toHaveLength(0)
+  })
+})
+
+describe("dedupeClaims", () => {
+  it("drops duplicate claimText regardless of casing, surrounding whitespace, or type", () => {
+    const claims: ExtractedClaim[] = [
+      { domainClass: "Person", subject: "Anna", claimText: "Anna enjoys hiking on weekends." },
+      { domainClass: "Preference", subject: "Anna", claimText: "Anna enjoys hiking on weekends." },
+      { type: "Fact", subject: "Anna", claimText: "  anna enjoys HIKING on weekends!  " },
+      { domainClass: "Fact", subject: "Anna", claimText: "Anna climbed Mount Rainier." },
+    ]
+
+    const deduped = dedupeClaims(claims)
+
+    expect(deduped).toHaveLength(2)
+    expect(deduped[0]!.claimText).toBe("Anna enjoys hiking on weekends.")
+    expect(deduped[1]!.claimText).toBe("Anna climbed Mount Rainier.")
+  })
+
+  it("keeps claims that differ in content even if they share the subject", () => {
+    const claims: ExtractedClaim[] = [
+      { domainClass: "Fact", subject: "Melanie", claimText: "Melanie moved to Seattle." },
+      {
+        domainClass: "Fact",
+        subject: "Melanie",
+        claimText: "Melanie moved to Seattle last month!",
+      },
+    ]
+
+    expect(dedupeClaims(claims)).toHaveLength(2)
+  })
+
+  it("does not mutate the input array", () => {
+    const claims: ExtractedClaim[] = [
+      { domainClass: "Fact", subject: "A", claimText: "Same text." },
+      { domainClass: "Fact", subject: "B", claimText: "Same text." },
+    ]
+    const snapshot = [...claims]
+
+    dedupeClaims(claims)
+
+    expect(claims).toEqual(snapshot)
   })
 })
 
