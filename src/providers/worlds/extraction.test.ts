@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test"
+import { DataFactory, Parser, Store } from "n3"
 import { claimsToTurtle, type ExtractedClaim } from "./extraction"
 import { validateShaclGraph } from "./shapes"
 import { PROV, RDF, SCHEMA, WORLDS } from "./ontology"
@@ -124,4 +125,166 @@ describe("claimsToTurtle", () => {
     expect(shacl.valid).toBe(true)
     expect(shacl.errors).toHaveLength(0)
   })
+})
+
+describe("claimsToTurtle domain-class audit", () => {
+  const { namedNode } = DataFactory
+
+  function parseTurtleStore(turtle: string): Store {
+    const parser = new Parser()
+    const store = new Store()
+    store.addQuads(parser.parse(turtle))
+    return store
+  }
+
+  const DOMAIN_CASES: Array<{ name: string; emitsClaimNode: boolean; claim: ExtractedClaim }> = [
+    {
+      name: "Person",
+      emitsClaimNode: true,
+      claim: {
+        domainClass: "Person",
+        subject: "Anna",
+        action: "works as",
+        object: "a nurse at Harborview Medical Center",
+        claimText: "Anna works as a nurse at Harborview Medical Center.",
+      },
+    },
+    {
+      name: "Event",
+      emitsClaimNode: false,
+      claim: {
+        domainClass: "Event",
+        subject: "Alice",
+        action: "applied for",
+        object: "asylum decision",
+        claimText: "Alice applied for an asylum decision.",
+        when: "2022-03-15",
+        status: "Postponed",
+      },
+    },
+    {
+      name: "Action",
+      emitsClaimNode: false,
+      claim: {
+        domainClass: "Action",
+        subject: "Bob",
+        action: "moved to",
+        object: "Seattle",
+        claimText: "Bob moved to Seattle.",
+      },
+    },
+    {
+      name: "MedicalCondition",
+      emitsClaimNode: false,
+      claim: {
+        domainClass: "MedicalCondition",
+        subject: "Bob",
+        action: "diagnosed with",
+        object: "Asthma",
+        claimText: "Bob was diagnosed with asthma in 2021.",
+      },
+    },
+    {
+      name: "Organization",
+      emitsClaimNode: false,
+      claim: {
+        domainClass: "Organization",
+        subject: "Charlie",
+        action: "works for",
+        object: "Wazoo Technologies",
+        claimText: "Charlie works for Wazoo Technologies as an engineer.",
+      },
+    },
+    {
+      name: "Preference",
+      emitsClaimNode: true,
+      claim: {
+        domainClass: "Preference",
+        subject: "Diana",
+        action: "prefers",
+        object: "tea over coffee",
+        claimText: "Diana prefers tea over coffee.",
+      },
+    },
+    {
+      name: "Relationship",
+      emitsClaimNode: true,
+      claim: {
+        domainClass: "Relationship",
+        subject: "Diana",
+        action: "is married to",
+        object: "Eve",
+        claimText: "Diana is married to Eve.",
+      },
+    },
+    {
+      name: "Fact",
+      emitsClaimNode: true,
+      claim: {
+        domainClass: "Fact",
+        subject: "Frank",
+        action: "was born in",
+        object: "Oslo",
+        claimText: "Frank was born in Oslo.",
+      },
+    },
+    {
+      // The `type` field takes precedence in the claim-branch lookup. A
+      // capitalized schema class there must still resolve to a claim type,
+      // never a schema entity type (the shape-violation class #50 fixed for
+      // Person).
+      name: "Fact with type:Event",
+      emitsClaimNode: true,
+      claim: {
+        domainClass: "Fact",
+        type: "Event",
+        subject: "Grace",
+        action: "held",
+        object: "a workshop",
+        claimText: "Grace held a workshop.",
+      },
+    },
+  ]
+
+  for (const { name, emitsClaimNode, claim } of DOMAIN_CASES) {
+    it(`passes SHACL and never types a claim node as a schema entity (${name})`, async () => {
+      const turtle = claimsToTurtle([claim], "audit-session")
+
+      const shacl = await validateShaclGraph(turtle)
+      expect(shacl.valid).toBe(true)
+      expect(shacl.errors).toHaveLength(0)
+
+      const store = parseTurtleStore(turtle)
+
+      // Type-vs-entity invariant: no claim node may carry a schema.org class
+      // type (that is the mismatch PERSON_SHAPE caught for "Person").
+      const schemaTyped = store
+        .getQuads(null, namedNode(RDF.type), null, null)
+        .filter((q) => q.object.value.startsWith("http://schema.org/"))
+      for (const q of schemaTyped) {
+        expect(q.subject.value).not.toMatch(/^urn:claim:/)
+      }
+
+      // Claim-branch classes emit worlds:Claim nodes; entity-branch classes
+      // (Event/Action/MedicalCondition/Organization) emit schema entity nodes
+      // instead, so no claim node is expected there.
+      if (emitsClaimNode) {
+        const claimNodes = store
+          .getQuads(null, namedNode(RDF.type), namedNode(WORLDS.Claim), null)
+          .map((q) => q.subject.value)
+        expect(claimNodes.length).toBeGreaterThan(0)
+      }
+
+      // The person entity node is present and named (PERSON_SHAPE).
+      const personTypeQuads = store.getQuads(
+        null,
+        namedNode(RDF.type),
+        namedNode(SCHEMA.Person),
+        null
+      )
+      expect(personTypeQuads).toHaveLength(1)
+      const personUri = personTypeQuads[0]!.subject
+      expect(store.getQuads(personUri, namedNode(SCHEMA.name), null, null)).toHaveLength(1)
+    })
+  }
 })
