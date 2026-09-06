@@ -164,12 +164,25 @@ export function dedupeClaims(claims: ExtractedClaim[]): ExtractedClaim[] {
  * the organization name, and MedicalCondition claims whose subject is the
  * condition name get the entity node alone — minting a urn:person:/
  * schema:Person node for them leaked orgs and events into the person class.
+ *
+ * URN allocation: claim nodes are urn:claim:{sessionId}/{claimIndex} where
+ * claimIndex is the claim's position in the deduped input array (gaps are
+ * fine and expected — the index only disambiguates). Entities use
+ * urn:person:|urn:org:|urn:event:|urn:medical:|urn:action: prefixes with a
+ * name-derived slug; the session itself is urn:session:{sessionId}.
+ *
+ * The emitted Turtle is line-deduplicated: statements re-asserted by later
+ * claims (an entity's schema:name/type quads) or repeated within a claim
+ * (dual rdf:type typing) are emitted only once, so the serialized graph is
+ * 1:1 with the deduplicated triple store.
  */
 export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): string {
   if (claims.length === 0) return ""
 
   const sessionUri = `urn:session:${sessionId}`
   const lines: string[] = [TURTLE_PREFIXES, ""]
+  // First-occurrence-wins dedupe of statement lines (applied at return time).
+  const seen: Set<string> = new Set()
 
   for (let i = 0; i < claims.length; i++) {
     const c = claims[i]
@@ -187,6 +200,10 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
       Boolean(orgName) &&
       (domainClass === "Organization" ||
         (c.action && /works for|employed at|company/i.test(c.action)))
+
+    // URN for the claim node backing this assertion (the comment explaining
+    // index semantics lives in the function docstring).
+    const claimUri = `urn:claim:${sessionId}/${i}`
 
     // The subject names the entity the claim is about rather than a person
     // actor: an Event whose subject is the venue/event itself, an
@@ -258,25 +275,30 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
         `<${orgUri}> <${SCHEMA.name}> "${escapeTurtle(orgName)}" .`,
         `<${orgUri}> <${PROV.wasDerivedFrom}> <${sessionUri}> .`
       )
-      if (subjectIsItsOwnEntity) {
-        // Subject IS the organization (the model put the org in `subject`):
-        // attach the assertion to the org node itself; there is no person
-        // node to hang worksFor on.
-        lines.push(
-          `<${orgUri}> <${SCHEMA.text}> "${escapeTurtle(c.claimText)}" .`,
-          `<${orgUri}> <${WORLDS.claimText}> "${escapeTurtle(c.claimText)}" .`
-        )
-      } else {
-        lines.push(
-          `<${personUri}> <${SCHEMA.worksFor}> <${orgUri}> .`,
-          `<${personUri}> <${SCHEMA.text}> "${escapeTurtle(c.claimText)}" .`,
-          `<${personUri}> <${WORLDS.claimText}> "${escapeTurtle(c.claimText)}" .`,
-          `<${personUri}> <${PROV.wasDerivedFrom}> <${sessionUri}> .`
-        )
+      if (!subjectIsItsOwnEntity) {
+        lines.push(`<${personUri}> <${SCHEMA.worksFor}> <${orgUri}> .`)
+      }
+      // The employment assertion gets a claim node like every other claim —
+      // same URN scheme, same worlds:Claim typing, same provenance — instead
+      // of claimText literals dangling off the person/org entity node.
+      lines.push(
+        `<${claimUri}> <${RDF.type}> <${WORLDS.Claim}> .`,
+        `<${claimUri}> <${SCHEMA.about}> <${subjectIsItsOwnEntity ? orgUri : personUri}> .`,
+        `<${claimUri}> <${SCHEMA.text}> "${escapeTurtle(c.claimText)}" .`,
+        `<${claimUri}> <${WORLDS.claimText}> "${escapeTurtle(c.claimText)}" .`,
+        `<${claimUri}> <${PROV.wasDerivedFrom}> <${sessionUri}> .`
+      )
+      if (c.action) {
+        lines.push(`<${claimUri}> <${WORLDS.claimAction}> "${escapeTurtle(c.action)}" .`)
+      }
+      if (c.object && !subjectIsItsOwnEntity) {
+        lines.push(`<${claimUri}> <${WORLDS.claimObject}> "${escapeTurtle(c.object)}" .`)
       }
     } else {
-      const claimUri = `urn:claim:${sessionId}/${i}`
       const typeIri = CLAIM_TYPE_MAP[c.type || domainClass] || WORLDS.Claim
+      // Both types are load-bearing: n3 does no subclass inference, so a
+      // "?x rdf:type worlds:Claim" query must also match FactClaim nodes.
+      // The emitted-line dedupe below collapses the two when they are equal.
       lines.push(
         `<${claimUri}> <${RDF.type}> <${typeIri}> .`,
         `<${claimUri}> <${RDF.type}> <${WORLDS.Claim}> .`,
@@ -302,7 +324,15 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
     lines.push("")
   }
 
-  return lines.join("\n")
+  // First-occurrence-wins: entity name/type quads re-asserted by later
+  // claims and within-claim repeats never reach the output twice.
+  const dedupedLines = lines.filter((l) => {
+    if (!l.startsWith("<")) return true // comments, prefixes, blanks
+    if (seen.has(l)) return false
+    seen.add(l)
+    return true
+  })
+  return dedupedLines.join("\n")
 }
 
 async function sleep(ms: number): Promise<void> {

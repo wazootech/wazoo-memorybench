@@ -129,6 +129,7 @@ Rules:
 - Extract ONLY explicitly stated information
 - Use speakers' actual names ("${speakerA}", "${speakerB}"), never generic "the user" or "the assistant"
 - Each distinct assertion exactly once — never emit the same fact twice under different classifications
+- Do not restate a fact already captured by an earlier item in different words (e.g. "works at X since 2020" and "has been working at X since 2020" are one assertion, not two) — emit it once, best phrasing
 - For Organization items, "object" MUST be the organization's actual name (e.g. "Harborview Medical Center"), never a generic word like "organization" or "company"
 - Resolve all relative temporal expressions ("yesterday", "last year", "over a year") relative to ${date}
 - Each claimText MUST be a complete, self-contained searchable sentence (e.g., "${speakerA} waited over a year for their asylum application to get approved.")

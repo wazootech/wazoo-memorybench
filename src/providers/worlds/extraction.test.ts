@@ -4,6 +4,15 @@ import { claimsToTurtle, dedupeClaims, type ExtractedClaim } from "./extraction"
 import { validateShaclGraph } from "./shapes"
 import { PROV, RDF, SCHEMA, WORLDS } from "./ontology"
 
+const { namedNode, literal } = DataFactory
+
+function parseTurtleStore(turtle: string): Store {
+  const parser = new Parser()
+  const store = new Store()
+  store.addQuads(parser.parse(turtle))
+  return store
+}
+
 describe("claimsToTurtle", () => {
   it("converts domain Event claims into direct schema:Event quads with provenance and text", async () => {
     const claims: ExtractedClaim[] = [
@@ -94,7 +103,7 @@ describe("claimsToTurtle", () => {
       `<urn:person:session-100/charlie> <${SCHEMA.worksFor}> <urn:org:session-100/wazoo-technologies> .`
     )
     expect(turtle).toContain(
-      `<urn:person:session-100/charlie> <${PROV.wasDerivedFrom}> <urn:session:session-100> .`
+      `<urn:claim:session-100/0> <${PROV.wasDerivedFrom}> <urn:session:session-100> .`
     )
 
     const shacl = await validateShaclGraph(turtle)
@@ -156,6 +165,70 @@ describe("claimsToTurtle", () => {
     )
     expect(turtle).not.toContain(`<${SCHEMA.name}> "Organization" .`)
 
+    // The org's own employment assertion gets a uniform claim node.
+    expect(turtle).toContain(
+      `<urn:claim:session-self/1> <${RDF.type}> <${WORLDS.Claim}> .`
+    )
+    expect(turtle).toContain(
+      `<urn:claim:session-self/1> <${PROV.wasDerivedFrom}> <urn:session:session-self> .`
+    )
+
+    const shacl = await validateShaclGraph(turtle)
+    expect(shacl.valid).toBe(true)
+    expect(shacl.errors).toHaveLength(0)
+  })
+
+  it("gives an org-subject employment claim a uniform claim node instead of literals on the org", async () => {
+    const claims: ExtractedClaim[] = [
+      {
+        domainClass: "Organization",
+        subject: "Globex Corporation",
+        claimText: "Globex Corporation is the employer of Frank.",
+      },
+    ]
+
+    const turtle = claimsToTurtle(claims, "session-org-subject")
+    const store = parseTurtleStore(turtle)
+
+    // Typed org node with the real name...
+    const orgQuads = store.getQuads(
+      null,
+      namedNode(RDF.type),
+      namedNode(SCHEMA.Organization),
+      null
+    )
+    expect(orgQuads).toHaveLength(1)
+    const orgUri = orgQuads[0]!.subject
+    expect(orgUri.value).toBe("urn:org:session-org-subject/globex-corporation")
+    const nameQuads = store.getQuads(orgUri, namedNode(SCHEMA.name), null, null)
+    expect(nameQuads[0]!.object.value).toBe("Globex Corporation")
+
+    // ...plus a uniform claim node: same urn:claim: scheme, typed
+    // worlds:Claim, provenance-anchored, about the org itself, with the SPO
+    // decomposition other claims get. No person node, no claimText literals
+    // dangling off the entity.
+    const claimQuads = store.getQuads(
+      null,
+      namedNode(WORLDS.claimText),
+      literal("Globex Corporation is the employer of Frank."),
+      null
+    )
+    expect(claimQuads).toHaveLength(1)
+    const claimUri = claimQuads[0]!.subject
+    expect(claimUri.value).toBe("urn:claim:session-org-subject/0")
+    const typeQuads = store.getQuads(claimUri, namedNode(RDF.type), null, null)
+    expect(typeQuads).toHaveLength(1)
+    expect(typeQuads[0]!.object.value).toBe(WORLDS.Claim)
+    const aboutQuads = store.getQuads(claimUri, namedNode(SCHEMA.about), null, null)
+    expect(aboutQuads).toHaveLength(1)
+    expect(aboutQuads[0]!.object.value).toBe(orgUri.value)
+    expect(
+      store.getQuads(claimUri, namedNode(PROV.wasDerivedFrom), null, null)
+    ).toHaveLength(1)
+    expect(
+      store.getQuads(orgUri, namedNode(WORLDS.claimText), null, null)
+    ).toHaveLength(0)
+
     const shacl = await validateShaclGraph(turtle)
     expect(shacl.valid).toBe(true)
     expect(shacl.errors).toHaveLength(0)
@@ -204,16 +277,27 @@ describe("dedupeClaims", () => {
   })
 })
 
+describe("claimsToTurtle emitted-line dedupe", () => {
+  it("emits shared entity statements once even across many claims", () => {
+    const claims: ExtractedClaim[] = [
+      { domainClass: "Fact", subject: "Melanie", claimText: "Melanie moved to Seattle." },
+      { domainClass: "Fact", subject: "Melanie", claimText: "Melanie likes tea." },
+      { domainClass: "Fact", subject: "Melanie", claimText: "Melanie runs on weekends." },
+    ]
+
+    const turtle = claimsToTurtle(claims, "session-dedupe")
+    const statementLines = turtle
+      .split("\n")
+      .filter((l) => l.startsWith("<"))
+
+    const uniqueStatements = new Set(statementLines)
+    expect(statementLines.length).toBe(uniqueStatements.size)
+    // The person node still exists, named, after collapsing repeats.
+    expect(turtle.match(/schema\.org\/name> "Melanie" \./g)).toHaveLength(1)
+  })
+})
+
 describe("claimsToTurtle domain-class audit", () => {
-  const { namedNode } = DataFactory
-
-  function parseTurtleStore(turtle: string): Store {
-    const parser = new Parser()
-    const store = new Store()
-    store.addQuads(parser.parse(turtle))
-    return store
-  }
-
   const DOMAIN_CASES: Array<{ name: string; emitsClaimNode: boolean; claim: ExtractedClaim }> = [
     {
       name: "Person",
