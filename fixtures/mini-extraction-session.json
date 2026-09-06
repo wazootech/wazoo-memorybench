@@ -1,0 +1,25 @@
+{
+  "sessionId": "mini-extraction-001",
+  "metadata": {
+    "speakerA": "Melanie",
+    "speakerB": "Anna",
+    "formattedDate": "2026-08-15"
+  },
+  "messages": [
+    {
+      "role": "user",
+      "speaker": "Melanie",
+      "content": "Hi Anna! I'm Melanie. I work as a nurse at Harborview Medical Center, and I've been there since 2020."
+    },
+    {
+      "role": "assistant",
+      "speaker": "Anna",
+      "content": "Nice to meet you, Melanie! I'm Anna. I enjoy hiking on weekends, and I have mild asthma."
+    },
+    {
+      "role": "user",
+      "speaker": "Melanie",
+      "content": "I moved to Seattle last month. It's great that we met at the Harborview charity gala in June."
+    }
+  ]
+}
