@@ -206,6 +206,7 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
       lines.push(
         `<${orgUri}> <${RDF.type}> <${SCHEMA.Organization}> .`,
         `<${orgUri}> <${SCHEMA.name}> "${escapeTurtle(c.object || "Organization")}" .`,
+        `<${orgUri}> <${PROV.wasDerivedFrom}> <${sessionUri}> .`,
         `<${personUri}> <${SCHEMA.worksFor}> <${orgUri}> .`,
         `<${personUri}> <${SCHEMA.text}> "${escapeTurtle(c.claimText)}" .`,
         `<${personUri}> <${WORLDS.claimText}> "${escapeTurtle(c.claimText)}" .`,

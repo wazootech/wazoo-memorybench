@@ -114,7 +114,46 @@ worlds:ActionShape a sh:NodeShape ;
   ] .
 `
 
-export const DOMAINS_SHACL_SHAPE = [CLAIM_SHAPE, PERSON_SHAPE, EVENT_SHAPE, ACTION_SHAPE].join("\n")
+export const MEDICAL_CONDITION_SHAPE = `
+${TURTLE_PREFIXES}
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+worlds:MedicalConditionShape a sh:NodeShape ;
+  sh:targetClass schema:MedicalCondition ;
+  sh:property [
+    sh:path schema:name ;
+    sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path prov:wasDerivedFrom ;
+    sh:minCount 1 ;
+  ] .
+`
+
+export const ORGANIZATION_SHAPE = `
+${TURTLE_PREFIXES}
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+
+worlds:OrganizationShape a sh:NodeShape ;
+  sh:targetClass schema:Organization ;
+  sh:property [
+    sh:path schema:name ;
+    sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path prov:wasDerivedFrom ;
+    sh:minCount 1 ;
+  ] .
+`
+
+export const DOMAINS_SHACL_SHAPE = [
+  CLAIM_SHAPE,
+  PERSON_SHAPE,
+  EVENT_SHAPE,
+  ACTION_SHAPE,
+  MEDICAL_CONDITION_SHAPE,
+  ORGANIZATION_SHAPE,
+].join("\n")
 
 export interface ValidationResult {
   valid: boolean
