@@ -18,10 +18,14 @@ jobs:
           repository: wazootech/wazoo-tools
           ref: feat/make-wazoo-tools-canonical-veneer-over-worlds-sdk
           path: wazoo-tools-checkout
+      # The import '.../../wazoo-tools/src/mod' resolves relative to the
+      # source file: <repo>/src/providers/worlds -> 4 up = <workspace root>,
+      # so the sibling must live at $GITHUB_WORKSPACE/../../../../workspaces/wazootech/repos/wazoo-tools.
       - name: Link wazoo-tools sibling for the relative import
         run: |
-          mkdir -p "$(dirname "$GITHUB_WORKSPACE")/wazootech/repos"
-          ln -s "$GITHUB_WORKSPACE/wazoo-tools-checkout" "$(dirname "$GITHUB_WORKSPACE")/wazootech/repos/wazoo-tools"
+          SIBLING="$GITHUB_WORKSPACE/../../../../workspaces/wazootech/repos"
+          mkdir -p "$SIBLING"
+          ln -s "$GITHUB_WORKSPACE/wazoo-tools-checkout" "$SIBLING/wazoo-tools"
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run format:check
