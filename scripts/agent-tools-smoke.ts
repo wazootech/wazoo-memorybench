@@ -66,10 +66,11 @@ const toolOptions = { toolCallId: "smoke", messages: [], context: {} } as never
 // ---- 2. Mechanical phase: the exact surface an agent runtime calls ----
 console.log("─".repeat(64))
 
-const searchRes = (await tools.searchWorld.execute!(
-  { query: "Melanie" },
-  toolOptions,
-)) as { success: boolean; data?: { results?: Array<{ text: string; score: number }> }; error?: string }
+const searchRes = (await tools.searchWorld.execute!({ query: "Melanie" }, toolOptions)) as {
+  success: boolean
+  data?: { results?: Array<{ text: string; score: number }> }
+  error?: string
+}
 const searchHits = searchRes.data?.results ?? []
 console.log(
   `SEARCH  success=${searchRes.success} | ${searchHits.length} hits | top: ${JSON.stringify(searchHits[0]?.text?.slice(0, 80))}`
@@ -80,7 +81,7 @@ const sparqlRes = (await tools.executeSparql.execute!(
     query:
       "PREFIX schema: <http://schema.org/>\nSELECT ?person ?org WHERE { ?person schema:worksFor ?org }",
   },
-  toolOptions,
+  toolOptions
 )) as {
   success: boolean
   data?: { results?: { bindings?: Array<Record<string, { value: string }>> } }
@@ -88,7 +89,9 @@ const sparqlRes = (await tools.executeSparql.execute!(
 }
 const bindings = sparqlRes.data?.results?.bindings ?? []
 const worksForPairs = bindings.map((b) => `${b.person?.value} -> ${b.org?.value}`)
-console.log(`SPARQL  success=${sparqlRes.success} | ${bindings.length} worksFor bindings: ${worksForPairs.join(" | ") || "(none)"}`)
+console.log(
+  `SPARQL  success=${sparqlRes.success} | ${bindings.length} worksFor bindings: ${worksForPairs.join(" | ") || "(none)"}`
+)
 
 const schemaRes = (await tools.discoverSchema.execute!({}, toolOptions)) as {
   success: boolean
@@ -133,9 +136,7 @@ if (!skipAgent) {
   )
   console.log(`AGENT   answer: ${agentAnswer.slice(0, 200)}`)
   agentPass =
-    toolNames.length > 0 &&
-    /melanie/i.test(agentAnswer) &&
-    /harborview/i.test(agentAnswer)
+    toolNames.length > 0 && /melanie/i.test(agentAnswer) && /harborview/i.test(agentAnswer)
 }
 
 // ---- Verdict ----
@@ -148,7 +149,9 @@ if (!mechanicalPass) {
   process.exit(1)
 }
 if (!skipAgent && !agentPass) {
-  console.error("AGENT-TOOLS SMOKE FAILED (agentic phase: no tool use or answer missing person/org)")
+  console.error(
+    "AGENT-TOOLS SMOKE FAILED (agentic phase: no tool use or answer missing person/org)"
+  )
   process.exit(1)
 }
 console.log(

@@ -23,7 +23,7 @@ export type WorldsAgentTools = ReturnType<typeof createTools>
  */
 export async function createWorldsAgentTools(
   provider: WorldsProvider,
-  containerTag: string,
+  containerTag: string
 ): Promise<WorldsAgentTools> {
   const client = await provider.getClientForContainer(containerTag)
   return createTools({ client })

@@ -160,18 +160,12 @@ export function createAliasRegistry(): Map<string, string> {
   return new Map()
 }
 
-export function convergeAlias(
-  key: string,
-  registry: Map<string, string>,
-): string {
+export function convergeAlias(key: string, registry: Map<string, string>): string {
   const hit = registry.get(key)
   if (hit) return hit
 
   const candidates = [key, key.replace(/s$/, "")].filter((k) => k.length > 0)
-  const stripped = key.replace(
-    /-(inc|llc|ltd|limited|corp|corporation|company|co)$/,
-    "",
-  )
+  const stripped = key.replace(/-(inc|llc|ltd|limited|corp|corporation|company|co)$/, "")
   if (stripped && stripped !== key) {
     candidates.push(stripped, stripped.replace(/s$/, ""))
   }
@@ -283,7 +277,9 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
     const subjectIsItsOwnEntity =
       (isEvent && Boolean(c.where) && subjectSlug === slugify(c.where!)) ||
       (isOrg && subjectSlug === slugify(orgName)) ||
-      (domainClass === "MedicalCondition" && Boolean(c.object) && subjectSlug === slugify(c.object!))
+      (domainClass === "MedicalCondition" &&
+        Boolean(c.object) &&
+        subjectSlug === slugify(c.object!))
 
     lines.push(`# Assertions for ${c.subject} (${domainClass})`)
     if (!subjectIsItsOwnEntity) {
@@ -317,9 +313,7 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
         lines.push(`<${eventUri}> <${SCHEMA.location}> "${escapeTurtle(c.where)}" .`)
       }
     } else if (domainClass === "MedicalCondition") {
-      const condUri = `urn:medical:${sessionId}/${shortHash(
-        c.object || c.claimText
-      )}`
+      const condUri = `urn:medical:${sessionId}/${shortHash(c.object || c.claimText)}`
       lines.push(
         `<${condUri}> <${RDF.type}> <${SCHEMA.MedicalCondition}> .`,
         `<${condUri}> <${SCHEMA.name}> "${escapeTurtle(c.object || c.action || c.claimText)}" .`,
@@ -344,10 +338,7 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
         lines.push(`<${actionUri}> <${SCHEMA.object}> "${escapeTurtle(c.object)}" .`)
       }
     } else if (isOrg) {
-      const orgUri = `urn:org:${sessionId}/${convergeAlias(
-        slugify(orgName),
-        aliasRegistry
-      )}`
+      const orgUri = `urn:org:${sessionId}/${convergeAlias(slugify(orgName), aliasRegistry)}`
       lines.push(
         `<${orgUri}> <${RDF.type}> <${SCHEMA.Organization}> .`,
         `<${orgUri}> <${SCHEMA.name}> "${escapeTurtle(orgName)}" .`,
