@@ -131,6 +131,68 @@ function slugify(text: string): string {
 }
 
 /**
+ * Stable short content hash (12 hex chars) for entity-free URNs. Keyed on
+ * the assertion content itself so the same fact re-extracted in a later
+ * session (or re-run) mints the identical URN instead of a positional one.
+ */
+export function shortHash(text: string): string {
+  return createHash("sha256").update(text).digest("hex").slice(0, 12)
+}
+
+/**
+ * Session-scoped alias convergence for name-keyed entity URNs. Deterministic
+ * string rules only — no embeddings here:
+ *
+ * 1. exact slug match
+ * 2. trailing-plural collapse ("acme-cos" ~ "acme-co")
+ * 3. trailing legal-suffix strip ("acme-corp" -> "acme", "globex-corporation" -> "globex")
+ *
+ * Prefix aliases that would over-merge are intentionally NOT matched:
+ * "mel" stays distinct from "melanie", and "harborview" the person from
+ * "harborview-medical-center". Cross-session and embedding-similar aliases
+ * are the job of the entity-resolution layer (@wazoo/tools), not the
+ * per-session emitter.
+ *
+ * The registry memoizes every visited key so all variants converge on the
+ * first canonical form seen in this session.
+ */
+export function createAliasRegistry(): Map<string, string> {
+  return new Map()
+}
+
+export function convergeAlias(
+  key: string,
+  registry: Map<string, string>,
+): string {
+  const hit = registry.get(key)
+  if (hit) return hit
+
+  const candidates = [key, key.replace(/s$/, "")].filter((k) => k.length > 0)
+  const stripped = key.replace(
+    /-(inc|llc|ltd|limited|corp|corporation|company|co)$/,
+    "",
+  )
+  if (stripped && stripped !== key) {
+    candidates.push(stripped, stripped.replace(/s$/, ""))
+  }
+
+  for (const candidate of candidates) {
+    const canonical = registry.get(candidate)
+    if (canonical) {
+      registry.set(key, canonical)
+      return canonical
+    }
+  }
+
+  // New entity: the form as passed wins; every reducible variant maps to it.
+  const canonical = key
+  for (const candidate of new Set([...candidates, key])) {
+    registry.set(candidate, canonical)
+  }
+  return canonical
+}
+
+/**
  * Content-based claim dedupe: claims with the same normalized claimText are
  * the same assertion, so only the first occurrence survives the graph build.
  * Without this, a model that emits one assertion twice (e.g. once as a
@@ -165,11 +227,18 @@ export function dedupeClaims(claims: ExtractedClaim[]): ExtractedClaim[] {
  * condition name get the entity node alone — minting a urn:person:/
  * schema:Person node for them leaked orgs and events into the person class.
  *
- * URN allocation: claim nodes are urn:claim:{sessionId}/{claimIndex} where
- * claimIndex is the claim's position in the deduped input array (gaps are
- * fine and expected — the index only disambiguates). Entities use
- * urn:person:|urn:org:|urn:event:|urn:medical:|urn:action: prefixes with a
- * name-derived slug; the session itself is urn:session:{sessionId}.
+ * URN allocation (stable across re-extraction):
+ * - Claim nodes: urn:claim:{sessionId}/{shortHash(claimText)} — content-keyed,
+ *   so the same assertion hashes to the same URN regardless of the order or
+ *   count of surrounding claims.
+ * - Event/Action/MedicalCondition nodes: content-keyed the same way (event:
+ *   claimText; condition: object name; action: action+object pair).
+ * - Person/Organization nodes: name-keyed slugs passed through
+ *   convergeAlias, which collapses plurals and legal suffixes ("Acme Corp"
+ *   vs "Acme") within the session.
+ * - The session itself is urn:session:{sessionId}. All identity remains
+ *   session-scoped by design; the @wazoo/tools entity-resolution layer maps
+ *   these URNs onto cross-session canonical IDs.
  *
  * The emitted Turtle is line-deduplicated: statements re-asserted by later
  * claims (an entity's schema:name/type quads) or repeated within a claim
@@ -183,11 +252,13 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
   const lines: string[] = [TURTLE_PREFIXES, ""]
   // First-occurrence-wins dedupe of statement lines (applied at return time).
   const seen: Set<string> = new Set()
+  // Session-scoped alias convergence for person/org URNs.
+  const aliasRegistry = createAliasRegistry()
 
   for (let i = 0; i < claims.length; i++) {
     const c = claims[i]
     const domainClass = c.domainClass || c.type || "Fact"
-    const subjectSlug = slugify(c.subject)
+    const subjectSlug = convergeAlias(slugify(c.subject), aliasRegistry)
     const personUri = `urn:person:${sessionId}/${subjectSlug}`
 
     const isEvent = domainClass === "Event" || c.type === "event"
@@ -201,9 +272,9 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
       (domainClass === "Organization" ||
         (c.action && /works for|employed at|company/i.test(c.action)))
 
-    // URN for the claim node backing this assertion (the comment explaining
-    // index semantics lives in the function docstring).
-    const claimUri = `urn:claim:${sessionId}/${i}`
+    // URN for the claim node backing this assertion — content-keyed so the
+    // same claimText always lands on the same node (see docstring).
+    const claimUri = `urn:claim:${sessionId}/${shortHash(c.claimText)}`
 
     // The subject names the entity the claim is about rather than a person
     // actor: an Event whose subject is the venue/event itself, an
@@ -221,7 +292,7 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
     }
 
     if (isEvent) {
-      const eventUri = `urn:event:${sessionId}/${i}`
+      const eventUri = `urn:event:${sessionId}/${shortHash(c.claimText)}`
       lines.push(
         `<${eventUri}> <${RDF.type}> <${SCHEMA.Event}> .`,
         `<${eventUri}> <${SCHEMA.name}> "${escapeTurtle(c.claimText)}" .`,
@@ -246,7 +317,9 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
         lines.push(`<${eventUri}> <${SCHEMA.location}> "${escapeTurtle(c.where)}" .`)
       }
     } else if (domainClass === "MedicalCondition") {
-      const condUri = `urn:medical:${sessionId}/${i}`
+      const condUri = `urn:medical:${sessionId}/${shortHash(
+        c.object || c.claimText
+      )}`
       lines.push(
         `<${condUri}> <${RDF.type}> <${SCHEMA.MedicalCondition}> .`,
         `<${condUri}> <${SCHEMA.name}> "${escapeTurtle(c.object || c.action || c.claimText)}" .`,
@@ -256,7 +329,9 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
         `<${condUri}> <${PROV.wasDerivedFrom}> <${sessionUri}> .`
       )
     } else if (domainClass === "Action") {
-      const actionUri = `urn:action:${sessionId}/${i}`
+      const actionUri = `urn:action:${sessionId}/${shortHash(
+        [c.action, c.object].filter(Boolean).join("|") || c.claimText
+      )}`
       lines.push(
         `<${actionUri}> <${RDF.type}> <${SCHEMA.Action}> .`,
         `<${actionUri}> <${SCHEMA.name}> "${escapeTurtle(c.action || c.claimText)}" .`,
@@ -269,7 +344,10 @@ export function claimsToTurtle(claims: ExtractedClaim[], sessionId: string): str
         lines.push(`<${actionUri}> <${SCHEMA.object}> "${escapeTurtle(c.object)}" .`)
       }
     } else if (isOrg) {
-      const orgUri = `urn:org:${sessionId}/${slugify(orgName)}`
+      const orgUri = `urn:org:${sessionId}/${convergeAlias(
+        slugify(orgName),
+        aliasRegistry
+      )}`
       lines.push(
         `<${orgUri}> <${RDF.type}> <${SCHEMA.Organization}> .`,
         `<${orgUri}> <${SCHEMA.name}> "${escapeTurtle(orgName)}" .`,

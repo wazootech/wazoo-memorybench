@@ -1,6 +1,12 @@
 import { describe, expect, it } from "bun:test"
 import { DataFactory, Parser, Store } from "n3"
-import { claimsToTurtle, dedupeClaims, type ExtractedClaim } from "./extraction"
+import {
+  claimsToTurtle,
+  convergeAlias,
+  dedupeClaims,
+  shortHash,
+  type ExtractedClaim,
+} from "./extraction"
 import { validateShaclGraph } from "./shapes"
 import { PROV, RDF, SCHEMA, WORLDS } from "./ontology"
 
@@ -31,18 +37,18 @@ describe("claimsToTurtle", () => {
 
     expect(turtle).toContain(`<urn:person:session-42/alice> <${RDF.type}> <${SCHEMA.Person}> .`)
     expect(turtle).toContain(`<urn:person:session-42/alice> <${SCHEMA.name}> "Alice" .`)
-    expect(turtle).toContain(`<urn:event:session-42/0> <${RDF.type}> <${SCHEMA.Event}> .`)
+    expect(turtle).toContain(`<urn:event:session-42/${shortHash("Alice applied for an asylum decision.")}> <${RDF.type}> <${SCHEMA.Event}> .`)
     expect(turtle).toContain(
-      `<urn:event:session-42/0> <${SCHEMA.about}> <urn:person:session-42/alice> .`
+      `<urn:event:session-42/${shortHash("Alice applied for an asylum decision.")}> <${SCHEMA.about}> <urn:person:session-42/alice> .`
     )
     expect(turtle).toContain(
-      `<urn:event:session-42/0> <${SCHEMA.text}> "Alice applied for an asylum decision." .`
+      `<urn:event:session-42/${shortHash("Alice applied for an asylum decision.")}> <${SCHEMA.text}> "Alice applied for an asylum decision." .`
     )
     expect(turtle).toContain(
-      `<urn:event:session-42/0> <${SCHEMA.eventStatus}> <${SCHEMA.EventPostponed}> .`
+      `<urn:event:session-42/${shortHash("Alice applied for an asylum decision.")}> <${SCHEMA.eventStatus}> <${SCHEMA.EventPostponed}> .`
     )
     expect(turtle).toContain(
-      `<urn:event:session-42/0> <${PROV.wasDerivedFrom}> <urn:session:session-42> .`
+      `<urn:event:session-42/${shortHash("Alice applied for an asylum decision.")}> <${PROV.wasDerivedFrom}> <urn:session:session-42> .`
     )
 
     const shacl = await validateShaclGraph(turtle)
@@ -71,11 +77,11 @@ describe("claimsToTurtle", () => {
     const turtle = claimsToTurtle(claims, "session-99")
 
     expect(turtle).toContain(
-      `<urn:medical:session-99/0> <${RDF.type}> <${SCHEMA.MedicalCondition}> .`
+      `<urn:medical:session-99/${shortHash("Asthma")}> <${RDF.type}> <${SCHEMA.MedicalCondition}> .`
     )
-    expect(turtle).toContain(`<urn:action:session-99/1> <${RDF.type}> <${SCHEMA.Action}> .`)
+    expect(turtle).toContain(`<urn:action:session-99/${shortHash("moved to|Seattle")}> <${RDF.type}> <${SCHEMA.Action}> .`)
     expect(turtle).toContain(
-      `<urn:action:session-99/1> <${SCHEMA.agent}> <urn:person:session-99/bob> .`
+      `<urn:action:session-99/${shortHash("moved to|Seattle")}> <${SCHEMA.agent}> <urn:person:session-99/bob> .`
     )
 
     const shacl = await validateShaclGraph(turtle)
@@ -103,7 +109,9 @@ describe("claimsToTurtle", () => {
       `<urn:person:session-100/charlie> <${SCHEMA.worksFor}> <urn:org:session-100/wazoo-technologies> .`
     )
     expect(turtle).toContain(
-      `<urn:claim:session-100/0> <${PROV.wasDerivedFrom}> <urn:session:session-100> .`
+      `<urn:claim:session-100/${shortHash(
+        "Charlie works for Wazoo Technologies as an engineer."
+      )}> <${PROV.wasDerivedFrom}> <urn:session:session-100> .`
     )
 
     const shacl = await validateShaclGraph(turtle)
@@ -126,9 +134,9 @@ describe("claimsToTurtle", () => {
 
     // The claim node must stay in the worlds:Claim hierarchy: typing it
     // schema:Person would trigger PERSON_SHAPE, which requires schema:name.
-    expect(turtle).toContain(`<urn:claim:session-48/0> <${RDF.type}> <${WORLDS.FactClaim}> .`)
-    expect(turtle).toContain(`<urn:claim:session-48/0> <${RDF.type}> <${WORLDS.Claim}> .`)
-    expect(turtle).not.toContain(`<urn:claim:session-48/0> <${RDF.type}> <${SCHEMA.Person}> .`)
+    expect(turtle).toContain(`<urn:claim:session-48/${shortHash("Anna works as a nurse at Harborview Medical Center.")}> <${RDF.type}> <${WORLDS.FactClaim}> .`)
+    expect(turtle).toContain(`<urn:claim:session-48/${shortHash("Anna works as a nurse at Harborview Medical Center.")}> <${RDF.type}> <${WORLDS.Claim}> .`)
+    expect(turtle).not.toContain(`<urn:claim:session-48/${shortHash("Anna works as a nurse at Harborview Medical Center.")}> <${RDF.type}> <${SCHEMA.Person}> .`)
 
     const shacl = await validateShaclGraph(turtle)
     expect(shacl.valid).toBe(true)
@@ -165,12 +173,16 @@ describe("claimsToTurtle", () => {
     )
     expect(turtle).not.toContain(`<${SCHEMA.name}> "Organization" .`)
 
-    // The org's own employment assertion gets a uniform claim node.
-    expect(turtle).toContain(
-      `<urn:claim:session-self/1> <${RDF.type}> <${WORLDS.Claim}> .`
+    // The org's own employment assertion gets a uniform claim node with a
+    // content-keyed URN.
+    const orgClaimHash = shortHash(
+      "Harborview Medical Center is the employer of Melanie."
     )
     expect(turtle).toContain(
-      `<urn:claim:session-self/1> <${PROV.wasDerivedFrom}> <urn:session:session-self> .`
+      `<urn:claim:session-self/${orgClaimHash}> <${RDF.type}> <${WORLDS.Claim}> .`
+    )
+    expect(turtle).toContain(
+      `<urn:claim:session-self/${orgClaimHash}> <${PROV.wasDerivedFrom}> <urn:session:session-self> .`
     )
 
     const shacl = await validateShaclGraph(turtle)
@@ -215,7 +227,11 @@ describe("claimsToTurtle", () => {
     )
     expect(claimQuads).toHaveLength(1)
     const claimUri = claimQuads[0]!.subject
-    expect(claimUri.value).toBe("urn:claim:session-org-subject/0")
+    expect(claimUri.value).toBe(
+      `urn:claim:session-org-subject/${shortHash(
+        "Globex Corporation is the employer of Frank."
+      )}`
+    )
     const typeQuads = store.getQuads(claimUri, namedNode(RDF.type), null, null)
     expect(typeQuads).toHaveLength(1)
     expect(typeQuads[0]!.object.value).toBe(WORLDS.Claim)
@@ -294,6 +310,87 @@ describe("claimsToTurtle emitted-line dedupe", () => {
     expect(statementLines.length).toBe(uniqueStatements.size)
     // The person node still exists, named, after collapsing repeats.
     expect(turtle.match(/schema\.org\/name> "Melanie" \./g)).toHaveLength(1)
+  })
+})
+
+describe("claimsToTurtle IRI stability", () => {
+  it("gives the same claimText the same claim URN regardless of order", () => {
+    const claim: ExtractedClaim = {
+      domainClass: "Fact",
+      subject: "Anna",
+      claimText: "Anna enjoys hiking on weekends.",
+    }
+    const a = claimsToTurtle(
+      [claim, { domainClass: "Fact", subject: "Anna", claimText: "Anna likes tea." }],
+      "s"
+    )
+    const b = claimsToTurtle(
+      [{ domainClass: "Fact", subject: "Anna", claimText: "Anna likes tea." }, claim],
+      "s"
+    )
+    const hash = shortHash("Anna enjoys hiking on weekends.")
+    expect(a).toContain(`<urn:claim:s/${hash}>`)
+    expect(b).toContain(`<urn:claim:s/${hash}>`)
+  })
+
+  it("reuses the identical event URN when the same event claim reappears", () => {
+    const claim: ExtractedClaim = {
+      domainClass: "Event",
+      subject: "Alice",
+      claimText: "Alice applied for an asylum decision.",
+      when: "2022-03-15",
+    }
+    const turtle = claimsToTurtle([claim, claim], "s")
+    // Content-keyed: both copies hash to one URN, and the line dedupe
+    // collapses them into a single rdf:type statement.
+    const hash = shortHash(claim.claimText)
+    expect(
+      turtle.match(new RegExp(`urn:event:s/${hash}> <[^>]+22-rdf-syntax-ns#type>`, "g"))
+    ).toHaveLength(1)
+  })
+
+  it("converges 'Acme Corp' and 'Acme Corporation' onto one org node", () => {
+    const turtle = claimsToTurtle(
+      [
+        {
+          domainClass: "Organization",
+          subject: "Frank",
+          object: "Acme Corp",
+          claimText: "Frank works for Acme Corp.",
+        },
+        {
+          domainClass: "Organization",
+          subject: "Frank",
+          object: "Acme Corporation",
+          claimText: "Frank has been employed at Acme Corporation for years.",
+        },
+      ],
+      "s"
+    )
+    // First variant seen wins; both aliases converge on one org node that
+    // carries both name literals (multi-name is allowed by ORGANIZATION_SHAPE).
+    expect(turtle).toContain('<urn:org:s/acme-corp> <http://schema.org/name> "Acme Corp" .')
+    expect(turtle).toContain(
+      '<urn:org:s/acme-corp> <http://schema.org/name> "Acme Corporation" .'
+    )
+    expect(turtle).not.toContain("urn:org:s/acme-corporation")
+  })
+})
+
+describe("convergeAlias", () => {
+  it("collapses plurals and legal suffixes to the first canonical form", () => {
+    const registry = new Map<string, string>()
+    expect(convergeAlias("acme-corp", registry)).toBe("acme-corp")
+    expect(convergeAlias("acme", registry)).toBe("acme-corp")
+    expect(convergeAlias("acme-corporation", registry)).toBe("acme-corp")
+    expect(convergeAlias("acme-inc", registry)).toBe("acme-corp")
+  })
+
+  it("keeps risky prefix aliases distinct", () => {
+    const registry = new Map<string, string>()
+    expect(convergeAlias("mel", registry)).toBe("mel")
+    expect(convergeAlias("melanie", registry)).toBe("melanie")
+    expect(registry.get("mel")).toBe("mel")
   })
 })
 
