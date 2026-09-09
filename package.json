@@ -8,7 +8,8 @@
     "worlds-agent-smoke": "bun run scripts/worlds-agent-smoke.ts",
     "format": "prettier --write \"src/**/*.ts\" \"ui/**/*.tsx\" \"ui/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"ui/**/*.tsx\" \"ui/**/*.ts\"",
-    "smoke:extraction": "bun run scripts/smoke-extraction.ts"
+    "smoke:extraction": "bun run scripts/smoke-extraction.ts",
+    "smoke:agent-tools:inmemory": "bun run scripts/verify-inmemory-smoke.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",
@@ -17,7 +18,8 @@
     "@anthropic-ai/tokenizer": "^0.0.4",
     "@getzep/zep-cloud": "^3.13.0",
     "@types/n3": "^1.26.1",
-    "@worlds/sdk": "npm:@jsr/worlds__sdk@^0.6.0",
+    "@wazoo/tools": "npm:@jsr/wazoo__tools@^0.1.0",
+    "@worlds/sdk": "npm:@jsr/worlds__sdk@^0.9.0",
     "@worlds/sqlite": "npm:@jsr/worlds__sqlite@^0.7.0",
     "ai": "^7.0.93",
     "drizzle-orm": "^0.45.1",

@@ -4,14 +4,12 @@
  * (searchWorld / searchEntities, executeSparql, discoverSchema, importRdf,
  * exportRdf) without touching provider internals.
  *
- * This is the memorybench side of wazoo-tools PR #7 ("canonical AI SDK tool
- * veneer over @worlds/sdk"): createTools accepts the WorldsSdkInterface that
- * getClientForContainer already returns — no adapter needed.
- *
- * TODO: import from `jsr:@wazoo/tools` once PR #7 merges and publishes; the
- * relative import tracks the local checkout in the meantime.
+ * Consumes the canonical AI SDK tool veneer published from wazoo-tools as
+ * `@wazoo/tools` (JSR, via the npm-compat registry): createTools accepts the
+ * WorldsSdkInterface that getClientForContainer already returns — no adapter
+ * needed.
  */
-import { createTools } from "../../../../wazoo-tools/src/mod"
+import { createTools } from "@wazoo/tools"
 import type { WorldsProvider } from "./index"
 
 export type WorldsAgentTools = ReturnType<typeof createTools>
