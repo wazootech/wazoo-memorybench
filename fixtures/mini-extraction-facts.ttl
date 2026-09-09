@@ -1,0 +1,21 @@
+# Pre-extracted facts simulating extraction output from
+# fixtures/mini-extraction-session.json: the session's message
+# "I work as a nurse at Harborview Medical Center" becomes a
+# schema:worksFor triple. Shared by scripts/verify-inmemory-smoke.ts
+# and scripts/verify-durable-smoke.ts.
+@prefix schema: <http://schema.org/> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix worlds: <https://worlds.wazoo.dev/ns/memory#> .
+
+<urn:person:mini-extraction-001/melanie> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
+<urn:person:mini-extraction-001/melanie> <http://schema.org/name> "Melanie" .
+
+<urn:org:mini-extraction-001/harborview-medical-center> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Organization> .
+<urn:org:mini-extraction-001/harborview-medical-center> <http://schema.org/name> "Harborview Medical Center" .
+
+<urn:person:mini-extraction-001/melanie> <http://schema.org/worksFor> <urn:org:mini-extraction-001/harborview-medical-center> .
+
+<urn:claim:mini-extraction-001/abc123def456> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://worlds.wazoo.dev/ns/memory#Claim> .
+<urn:claim:mini-extraction-001/abc123def456> <https://worlds.wazoo.dev/ns/memory#claimText> "Melanie works as a nurse at Harborview Medical Center" .
+<urn:claim:mini-extraction-001/abc123def456> <http://schema.org/about> <urn:person:mini-extraction-001/melanie> .
+<urn:claim:mini-extraction-001/abc123def456> <http://www.w3.org/ns/prov#wasDerivedFrom> <urn:session:mini-extraction-001> .

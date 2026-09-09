@@ -19,12 +19,15 @@ import { createTools } from "@wazoo/tools"
 
 const CONTAINER = "agent-tools-smoke-durable"
 const FIXTURE = join(import.meta.dir, "..", "fixtures", "mini-extraction-session.json")
+const FACTS = join(import.meta.dir, "..", "fixtures", "mini-extraction-facts.ttl")
 
 const session = JSON.parse(await readFile(FIXTURE, "utf-8")) as {
   sessionId: string
   metadata?: Record<string, unknown>
   messages: { role: string; content: string; speaker?: string }[]
 }
+
+const factsTurtle = await readFile(FACTS, "utf-8")
 
 console.log("=== Durable (worlds-sqlite) agent-tools smoke verification ===")
 console.log("Backend: @worlds/sqlite (bun:sqlite) via WorldsProvider")
@@ -37,34 +40,17 @@ await provider.clear(CONTAINER)
 
 const ingestStart = performance.now()
 const ingestResult = await provider.ingest([session], { containerTag: CONTAINER })
-console.log(`INGEST  ${Math.round(performance.now() - ingestStart)}ms | ${ingestResult.documentIds.length} session(s)`)
+console.log(
+  `INGEST  ${Math.round(performance.now() - ingestStart)}ms | ${ingestResult.documentIds.length} session(s)`
+)
 
 // Pre-extracted facts: the fixture session's message "I work as a nurse at Harborview
 // Medical Center" would be extracted by the extraction pipeline into a schema:worksFor
 // triple. The durable smoke proves executeSparql against the durable store, so we import
-// the same pre-extracted Turtle the in-memory smoke seeds.
-const PRE_EXTRACTED_FACTS = `
-@prefix schema: <http://schema.org/> .
-@prefix prov: <http://www.w3.org/ns/prov#> .
-@prefix worlds: <https://worlds.wazoo.dev/ns/memory#> .
-
-<urn:person:mini-extraction-001/melanie> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Person> .
-<urn:person:mini-extraction-001/melanie> <http://schema.org/name> "Melanie" .
-
-<urn:org:mini-extraction-001/harborview-medical-center> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://schema.org/Organization> .
-<urn:org:mini-extraction-001/harborview-medical-center> <http://schema.org/name> "Harborview Medical Center" .
-
-<urn:person:mini-extraction-001/melanie> <http://schema.org/worksFor> <urn:org:mini-extraction-001/harborview-medical-center> .
-
-<urn:claim:mini-extraction-001/abc123def456> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <https://worlds.wazoo.dev/ns/memory#Claim> .
-<urn:claim:mini-extraction-001/abc123def456> <https://worlds.wazoo.dev/ns/memory#claimText> "Melanie works as a nurse at Harborview Medical Center" .
-<urn:claim:mini-extraction-001/abc123def456> <http://schema.org/about> <urn:person:mini-extraction-001/melanie> .
-<urn:claim:mini-extraction-001/abc123def456> <http://www.w3.org/ns/prov#wasDerivedFrom> <urn:session:mini-extraction-001> .
-`
-
+// the same pre-extracted Turtle the in-memory smoke seeds (fixtures/mini-extraction-facts.ttl).
 const client = await provider.getClientForContainer(CONTAINER)
 await client.import({
-  source: { kind: "serialized", data: PRE_EXTRACTED_FACTS, contentType: "text/turtle" },
+  source: { kind: "serialized", data: factsTurtle, contentType: "text/turtle" },
 })
 console.log("FACTS   imported pre-extracted Turtle (worksFor triple)")
 
@@ -75,9 +61,13 @@ let searchIndexBuilt = false
 try {
   const reindexResult = await client.reindex()
   searchIndexBuilt = true
-  console.log(`INDEX   rebuilt — ${reindexResult.processedQuadCount} quads, ${reindexResult.chunkRowCount} chunks`)
+  console.log(
+    `INDEX   rebuilt — ${reindexResult.processedQuadCount} quads, ${reindexResult.chunkRowCount} chunks`
+  )
 } catch (err) {
-  console.log(`INDEX   rebuild skipped (no working embedding endpoint): ${err instanceof Error ? err.message : String(err)}`)
+  console.log(
+    `INDEX   rebuild skipped (no working embedding endpoint): ${err instanceof Error ? err.message : String(err)}`
+  )
 }
 
 const tools = createTools({ client })
@@ -90,7 +80,8 @@ console.log("\n--- Mechanical phase (index-independent) ---")
 
 const sparqlRes = (await tools.executeSparql.execute!(
   {
-    query: "PREFIX schema: <http://schema.org/>\nSELECT ?person ?org WHERE { ?person schema:worksFor ?org }",
+    query:
+      "PREFIX schema: <http://schema.org/>\nSELECT ?person ?org WHERE { ?person schema:worksFor ?org }",
   },
   toolOptions
 )) as {
@@ -100,7 +91,9 @@ const sparqlRes = (await tools.executeSparql.execute!(
 }
 const bindings = sparqlRes.data?.results?.bindings ?? []
 const worksForPairs = bindings.map((b) => `${b.person?.value} -> ${b.org?.value}`)
-console.log(`SPARQL  success=${sparqlRes.success} | ${bindings.length} worksFor bindings: ${worksForPairs.join(" | ") || "(none)"}`)
+console.log(
+  `SPARQL  success=${sparqlRes.success} | ${bindings.length} worksFor bindings: ${worksForPairs.join(" | ") || "(none)"}`
+)
 
 const schemaRes = (await tools.discoverSchema.execute!({}, toolOptions)) as {
   success: boolean
@@ -114,10 +107,7 @@ console.log(`SCHEMA  success=${schemaRes.success} | ${schemaStr.length} chars of
 let searchPass = false
 let searchMsg = ""
 if (searchIndexBuilt) {
-  const searchRes = (await tools.searchWorld.execute!(
-    { query: "Melanie" },
-    toolOptions
-  )) as {
+  const searchRes = (await tools.searchWorld.execute!({ query: "Melanie" }, toolOptions)) as {
     success: boolean
     data?: { results?: Array<{ text: string; score: number }> }
     error?: string
@@ -158,8 +148,12 @@ console.log(`  - @wazoo/tools createTools wired onto WorldsProvider.getClientFor
 console.log(`  - executeSparql on durable SQLite store: ${bindings.length} worksFor binding(s)`)
 console.log(`  - discoverSchema on durable SQLite store: ${schemaStr.length} chars`)
 if (searchIndexBuilt) {
-  console.log(`  - searchWorld on durable SQLite store (FTS5 index): ${searchPass ? "OK" : "FAILED"}`)
+  console.log(
+    `  - searchWorld on durable SQLite store (FTS5 index): ${searchPass ? "OK" : "FAILED"}`
+  )
 } else {
   console.log(`  - searchWorld: requires a working embedding endpoint + reindex()`)
-  console.log(`    (Gemini: GEMINI_API_KEY; OpenAI/Ollama: OPENAI_BASE_URL or EMBEDDING_PROVIDER=openai|ollama)`)
+  console.log(
+    `    (Gemini: GEMINI_API_KEY; OpenAI/Ollama: OPENAI_BASE_URL or EMBEDDING_PROVIDER=openai|ollama)`
+  )
 }
