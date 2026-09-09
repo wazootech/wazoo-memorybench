@@ -58,6 +58,8 @@ worlds:MessageShape a sh:NodeShape ;
   ] .
 `
 
+export const SESSION_MESSAGE_SHACL_SHAPE = [SESSION_SHAPE, MESSAGE_SHAPE].join("\n")
+
 export const CLAIM_SHAPE = `
 ${TURTLE_PREFIXES}
 @prefix sh: <http://www.w3.org/ns/shacl#> .
@@ -203,8 +205,9 @@ export async function validateShaclGraph(
       errors,
     }
   } catch (err) {
-    logger.warn(`SHACL engine evaluation warning: ${err}`)
-    return { valid: true, errors: [String(err)] }
+    const message = `SHACL engine evaluation failed: ${String(err)}`
+    logger.error(message)
+    return { valid: false, errors: [message] }
   }
 }
 

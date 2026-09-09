@@ -7,7 +7,7 @@ import {
   shortHash,
   type ExtractedClaim,
 } from "./extraction"
-import { validateShaclGraph } from "./shapes"
+import { SESSION_MESSAGE_SHACL_SHAPE, validateShaclGraph } from "./shapes"
 import { PROV, RDF, SCHEMA, WORLDS } from "./ontology"
 
 const { namedNode, literal } = DataFactory
@@ -538,4 +538,20 @@ describe("claimsToTurtle domain-class audit", () => {
       expect(store.getQuads(personUri, namedNode(SCHEMA.name), null, null)).toHaveLength(1)
     })
   }
+})
+
+describe("strict session SHACL validation", () => {
+  it("rejects a conversation graph with no message parts", async () => {
+    const turtle = `
+      @prefix schema: <http://schema.org/> .
+      @prefix prov: <http://www.w3.org/ns/prov#> .
+      <urn:session:invalid> a schema:Conversation, prov:Activity ;
+        schema:dateCreated "2026-09-09" .
+    `
+
+    const result = await validateShaclGraph(turtle, SESSION_MESSAGE_SHACL_SHAPE)
+
+    expect(result.valid).toBe(false)
+    expect(result.errors.length).toBeGreaterThan(0)
+  })
 })

@@ -15,7 +15,7 @@ import type { UnifiedSession } from "../../types/unified"
 import { logger } from "../../utils/logger"
 import { WORLDS_PROMPTS } from "./prompts"
 import { PROV, RDF, SCHEMA, TURTLE_PREFIXES, WORLDS, XSD } from "./ontology"
-import { validateGraph } from "./shapes"
+import { SESSION_MESSAGE_SHACL_SHAPE, validateGraph, validateShaclGraph } from "./shapes"
 import { GEMINI_EMBEDDING_DIMENSIONS, GeminiEmbeddingService } from "./gemini-embedding-service"
 import { OpenAIEmbeddingService } from "./openai-embedding-service"
 import { CachedEmbeddingService } from "./cached-embedding-service"
@@ -130,8 +130,27 @@ export class WorldsProvider implements Provider {
     const ids = this.documentIds.get(options.containerTag) ?? []
 
     for (const session of sessions) {
-      const turtle = this.formatSessionForIngestion(session)
+      const turtle = await this.formatSessionForIngestion(session)
+      let factsTurtle = ""
 
+      // Shared content-addressed extraction cache (per #18/#22): NOT nested
+      // under containerTag, so it survives fresh run IDs. extraction.ts
+      // appends provider/model to the path for model-qualified keys.
+      const cacheDir = join(process.cwd(), "data", "cache", "extraction")
+      if (process.env.EXTRACTION_PROVIDER !== "none") {
+        const extractionProvider =
+          (process.env.EXTRACTION_PROVIDER as "gemini" | "ollama" | "openai" | "deepseek") ||
+          (process.env.OPENAI_BASE_URL ? "ollama" : "gemini")
+        // Extraction failures are fatal: continuing with only raw messages
+        // would silently turn a graph benchmark into a raw-retrieval run.
+        factsTurtle = await extractFactsToTurtle(this.apiKey, session, {
+          cacheDir,
+          provider: extractionProvider,
+        })
+      }
+
+      // Validate everything before importing either graph so a failed session
+      // cannot leave a partially ingested container behind.
       await client.import({
         source: {
           kind: "serialized",
@@ -139,33 +158,15 @@ export class WorldsProvider implements Provider {
           contentType: "text/turtle",
         },
       })
-
-      // Shared content-addressed extraction cache (per #18/#22): NOT nested
-      // under containerTag, so it survives fresh run IDs. extraction.ts
-      // appends provider/model to the path for model-qualified keys.
-      const cacheDir = join(process.cwd(), "data", "cache", "extraction")
-      if (process.env.EXTRACTION_PROVIDER !== "none") {
-        try {
-          const extractionProvider =
-            (process.env.EXTRACTION_PROVIDER as "gemini" | "ollama" | "openai" | "deepseek") ||
-            (process.env.OPENAI_BASE_URL ? "ollama" : "gemini")
-          const factsTurtle = await extractFactsToTurtle(this.apiKey, session, {
-            cacheDir,
-            provider: extractionProvider,
-          })
-          if (factsTurtle) {
-            await client.import({
-              source: {
-                kind: "serialized",
-                data: factsTurtle,
-                contentType: "text/turtle",
-              },
-            })
-            logger.debug(`Imported extracted facts for session ${session.sessionId}`)
-          }
-        } catch (err) {
-          logger.warn(`Fact extraction failed for ${session.sessionId}, continuing: ${err}`)
-        }
+      if (factsTurtle) {
+        await client.import({
+          source: {
+            kind: "serialized",
+            data: factsTurtle,
+            contentType: "text/turtle",
+          },
+        })
+        logger.debug(`Imported extracted facts for session ${session.sessionId}`)
       }
 
       ids.push(session.sessionId)
@@ -176,7 +177,7 @@ export class WorldsProvider implements Provider {
     return { documentIds: sessions.map((session) => session.sessionId) }
   }
 
-  private formatSessionForIngestion(session: UnifiedSession): string {
+  private async formatSessionForIngestion(session: UnifiedSession): Promise<string> {
     const { sessionId, messages, metadata } = session
     const sessionUri = `urn:session:${sessionId}`
 
@@ -225,8 +226,15 @@ export class WorldsProvider implements Provider {
 
     const validation = validateGraph(turtle)
     if (!validation.valid) {
-      logger.warn(
-        `SHACL validation warnings for session ${sessionId}: ${validation.errors.join("; ")}`
+      throw new Error(
+        `Session graph structural validation failed for ${sessionId}: ${validation.errors.join("; ")}`
+      )
+    }
+
+    const shacl = await validateShaclGraph(turtle, SESSION_MESSAGE_SHACL_SHAPE)
+    if (!shacl.valid) {
+      throw new Error(
+        `Session graph SHACL validation failed for ${sessionId}: ${shacl.errors.join("; ")}`
       )
     }
 
