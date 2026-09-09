@@ -9,23 +9,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      # The agent-tools wiring imports wazoo-tools' source directly
-      # (../../../../wazoo-tools/src/mod) until PR #7 publishes to JSR —
-      # check it out at the same relative depth the import expects, then
-      # link it into the workspace as the sibling repo.
-      - uses: actions/checkout@v4
-        with:
-          repository: wazootech/wazoo-tools
-          ref: feat/make-wazoo-tools-canonical-veneer-over-worlds-sdk
-          path: wazoo-tools-checkout
-      # The import '.../../wazoo-tools/src/mod' resolves relative to the
-      # source file: <repo>/src/providers/worlds -> 4 up = <workspace root>,
-      # so the sibling must live at $GITHUB_WORKSPACE/../../../../workspaces/wazootech/repos/wazoo-tools.
-      - name: Link wazoo-tools sibling for the relative import
-        run: |
-          SIBLING="$GITHUB_WORKSPACE/../../../../workspaces/wazootech/repos"
-          mkdir -p "$SIBLING"
-          ln -s "$GITHUB_WORKSPACE/wazoo-tools-checkout" "$SIBLING/wazoo-tools"
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run format:check
