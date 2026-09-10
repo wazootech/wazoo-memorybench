@@ -7,7 +7,7 @@
  *   1. ingest the mini fixture session (extraction via content-addressed
  *      cache — a repeat run costs zero LLM tokens)
  *   2. build the tool surface via createWorldsAgentTools
- *   3. MECHANICAL: call searchWorld / executeSparql / discoverSchema execute()
+ *   3. MECHANICAL: call searchWorld / executeSparql execute()
  *      exactly as an agent runtime would, assert graph-derived answers
  *   4. AGENTIC: a real DeepSeek generateText loop with the tools — the model
  *      must pick tools itself and answer from the graph
@@ -93,20 +93,29 @@ console.log(
   `SPARQL  success=${sparqlRes.success} | ${bindings.length} worksFor bindings: ${worksForPairs.join(" | ") || "(none)"}`
 )
 
-const schemaRes = (await tools.discoverSchema.execute!({}, toolOptions)) as {
+const schemaDiscoveryRes = (await tools.executeSparql.execute!(
+  {
+    query:
+      "SELECT ?type ?predicate WHERE { ?subject a ?type ; ?predicate ?object } LIMIT 20",
+  },
+  toolOptions
+)) as {
   success: boolean
-  data?: unknown
+  data?: { results?: { bindings?: Array<Record<string, { value: string }>> } }
   error?: string
 }
-const schemaStr = JSON.stringify(schemaRes.data ?? {})
-console.log(`SCHEMA  success=${schemaRes.success} | ${schemaStr.length} chars of ontology surface`)
+const schemaBindings = schemaDiscoveryRes.data?.results?.bindings ?? []
+console.log(
+  `SCHEMA  success=${schemaDiscoveryRes.success} | ${schemaBindings.length} type/predicate bindings`
+)
 
 let mechanicalPass =
   searchRes.success &&
   searchHits.length > 0 &&
   sparqlRes.success &&
   bindings.length > 0 &&
-  schemaRes.success
+  schemaDiscoveryRes.success &&
+  schemaBindings.length > 0
 
 // ---- 3. Agentic phase: real DeepSeek loop with the tools ----
 let agentPass = false

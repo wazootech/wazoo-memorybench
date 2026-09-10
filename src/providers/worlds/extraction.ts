@@ -150,7 +150,7 @@ export function shortHash(text: string): string {
  * Prefix aliases that would over-merge are intentionally NOT matched:
  * "mel" stays distinct from "melanie", and "harborview" the person from
  * "harborview-medical-center". Cross-session and embedding-similar aliases
- * are the job of the entity-resolution layer (@wazoo/tools), not the
+ * are the job of the entity-resolution layer (when enabled), not the
  * per-session emitter.
  *
  * The registry memoizes every visited key so all variants converge on the
@@ -231,7 +231,7 @@ export function dedupeClaims(claims: ExtractedClaim[]): ExtractedClaim[] {
  *   convergeAlias, which collapses plurals and legal suffixes ("Acme Corp"
  *   vs "Acme") within the session.
  * - The session itself is urn:session:{sessionId}. All identity remains
- *   session-scoped by design; the @wazoo/tools entity-resolution layer maps
+ *   session-scoped by design; the entity-resolution layer maps
  *   these URNs onto cross-session canonical IDs.
  *
  * The emitted Turtle is line-deduplicated: statements re-asserted by later
@@ -514,6 +514,12 @@ export async function extractFactsToTurtle(
       const raw = await readFile(cacheFile, "utf-8")
       const cached = JSON.parse(raw) as { hash: string; turtle: string }
       if (cached.hash === hash && typeof cached.turtle === "string") {
+        const shaclResult = await validateShaclGraph(cached.turtle)
+        if (!shaclResult.valid) {
+          throw new Error(
+            `Cached extraction for ${session.sessionId} failed SHACL validation: ${shaclResult.errors.join("; ")}`
+          )
+        }
         logger.debug(`Using cached fact extraction for ${session.sessionId}`)
         return cached.turtle
       }
@@ -532,13 +538,13 @@ export async function extractFactsToTurtle(
       .replace(/```\s*$/, "")
     claims = JSON.parse(cleaned) as ExtractedClaim[]
     if (!Array.isArray(claims)) {
-      logger.warn(`Fact extraction for ${session.sessionId}: response was not an array`)
-      return ""
+      throw new Error(`Fact extraction for ${session.sessionId} did not return a JSON array`)
     }
   } catch (err) {
-    logger.warn(`Fact extraction for ${session.sessionId}: failed to parse JSON: ${err}`)
+    const message = `Fact extraction for ${session.sessionId} failed to parse JSON: ${String(err)}`
+    logger.error(message)
     logger.debug(`Raw extraction response: ${text.slice(0, 500)}`)
-    return ""
+    throw new Error(message)
   }
 
   // The domain extraction prompt emits "domainClass" (the generic MEMORY
@@ -546,6 +552,11 @@ export async function extractFactsToTurtle(
   const valid = claims.filter(
     (c) => (c.type || c.domainClass) && c.subject && c.claimText && typeof c.claimText === "string"
   )
+  if (valid.length !== claims.length) {
+    throw new Error(
+      `Fact extraction for ${session.sessionId} contained ${claims.length - valid.length} malformed claim(s)`
+    )
+  }
   const deduped = dedupeClaims(valid)
   if (deduped.length < valid.length) {
     logger.debug(
@@ -562,13 +573,12 @@ export async function extractFactsToTurtle(
   if (turtle) {
     const shaclResult = await validateShaclGraph(turtle)
     if (!shaclResult.valid) {
-      logger.warn(
-        `SHACL Validation Violations for session ${session.sessionId}:\n` +
+      throw new Error(
+        `SHACL validation failed for extracted facts in session ${session.sessionId}:\n` +
           shaclResult.errors.join("\n")
       )
-    } else {
-      logger.debug(`SHACL Validation Passed for session ${session.sessionId}`)
     }
+    logger.debug(`SHACL Validation Passed for session ${session.sessionId}`)
   }
 
   if (cacheFile && turtle) {
