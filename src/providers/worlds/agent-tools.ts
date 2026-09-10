@@ -36,9 +36,14 @@ export async function createWorldsAgentTools(
 ): Promise<WorldsAgentTools> {
   const client = await provider.getClientForContainer(containerTag)
   const rawTools = createTools({ client, entityResolver }) as unknown as Record<string, unknown>
-  if (profile === "full") return rawTools as unknown as WorldsAgentTools
+  const legacyFreeTools = Object.fromEntries(
+    Object.entries(rawTools).filter(
+      ([name]) => name !== "discoverSchema" && name !== "searchEntities"
+    )
+  ) as unknown as WorldsAgentTools
+  if (profile === "full") return legacyFreeTools
   const allowed = new Set(PROFILE_TOOLS[profile])
   return Object.fromEntries(
-    Object.entries(rawTools).filter(([name]) => allowed.has(name))
+    Object.entries(legacyFreeTools).filter(([name]) => allowed.has(name))
   ) as unknown as WorldsAgentTools
 }
