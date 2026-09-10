@@ -119,7 +119,7 @@ export class WorldsProvider implements Provider {
       db,
       embeddingService: cachedEmbeddingService,
       vectorDimensions: embeddingService ? 768 : undefined,
-      searchIndexOnImport: "disabled",
+      searchIndexOnImport: "incremental",
     })
     this.clients.set(containerTag, client)
     return client
@@ -246,17 +246,20 @@ export class WorldsProvider implements Provider {
     containerTag: string,
     onProgress?: IndexingProgressCallback
   ): Promise<void> {
-    const client = await this.getClient(containerTag)
-    const indexResult = await client.reindex()
     logger.info(
-      `Worlds: rebuilt search index for ${containerTag} — ` +
-        `${indexResult.processedQuadCount} quads processed, ${indexResult.chunkRowCount} chunk rows`
+      `Worlds: incremental search projection is active for ${containerTag}; ` +
+        `${result.documentIds.length} imported session(s) are queryable`
     )
     onProgress?.({
       completedIds: result.documentIds,
       failedIds: [],
       total: result.documentIds.length,
     })
+  }
+
+  async reindexWorld(containerTag: string) {
+    const client = await this.getClient(containerTag)
+    return client.reindex()
   }
 
   async search(query: string, options: SearchOptions): Promise<unknown[]> {

@@ -28,7 +28,7 @@ fixed vector dimension.
 | :------------- | :------------- |
 | **Ingest** | Session messages → RDF Turtle → `client.import()`; strict structural and SHACL validation blocks the session before either raw or extracted RDF is imported. |
 | **Extract** | Optional LLM JSON claims → a constrained domain RDF emitter; malformed extraction, invalid RDF, or extraction failure is fatal unless `EXTRACTION_PROVIDER=none`. |
-| **Index** | `client.reindex()` — FTS5 plus vector chunks when the configured embedding endpoint is available. |
+| **Index** | Incremental projection during each committed `client.import()`; `reindexWorld` is reserved for repair, audit, or bulk-import completion. |
 | **Search** | Hybrid `client.search()` plus a bounded SPARQL fact lookup on `worlds:Claim`; raw ranked hits are returned before the fact-claim complement. |
 | **Answer** | MemoryBench answer layer — configurable LLM via `-m`. |
 | **Evaluate** | MemoryBench judge — MemScore reporting via `-j`. |
