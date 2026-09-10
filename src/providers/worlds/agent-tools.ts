@@ -24,5 +24,10 @@ export async function createWorldsAgentTools(
   containerTag: string
 ): Promise<WorldsAgentTools> {
   const client = await provider.getClientForContainer(containerTag)
-  return createTools({ client })
+  const rawTools = createTools({ client }) as unknown as Record<string, unknown>
+  return Object.fromEntries(
+    Object.entries(rawTools).filter(
+      ([name]) => name !== "discoverSchema" && name !== "searchEntities"
+    )
+  ) as unknown as WorldsAgentTools
 }
