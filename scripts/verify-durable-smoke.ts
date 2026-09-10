@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { WorldsProvider } from "../src/providers/worlds/index"
-import { createTools } from "@wazoo/tools"
+import { createWorldsAgentTools } from "../src/providers/worlds/agent-tools"
 
 // Durable (worlds-sqlite) agent-tools smoke verification.
-// Proves createTools (from @wazoo/tools JSR package) wired onto
+// Proves the local Worlds tool surface wired onto
 // WorldsProvider.getClientForContainer works against the file-backed
 // SQLite store that the production wazoo provider uses.
 //
@@ -13,7 +13,7 @@ import { createTools } from "@wazoo/tools"
 // the index-independent executeSparql surface and
 // records that searchWorld needs an embedding endpoint.
 //
-// Run on the PR #53 branch (chore/jsr-tools-import):
+// Run with a valid embedding endpoint:
 //   DEEPSEEK_API_KEY=test-key EXTRACTION_PROVIDER=none GEMINI_API_KEY=dummy \
 //     bun run scripts/verify-durable-smoke.ts
 
@@ -31,7 +31,7 @@ const factsTurtle = await readFile(FACTS, "utf-8")
 
 console.log("=== Durable (worlds-sqlite) agent-tools smoke verification ===")
 console.log("Backend: @worlds/sqlite (bun:sqlite) via WorldsProvider")
-console.log("Tools package: @wazoo/tools (JSR, installed on PR #53 branch)")
+console.log("Tools package: MemoryBench local Worlds tool surface")
 console.log("Container:", CONTAINER)
 
 const provider = new WorldsProvider()
@@ -56,7 +56,7 @@ console.log("FACTS   imported pre-extracted Turtle (worksFor triple)")
 
 // Build/rebuild the FTS5 search index now that the facts are in the quad store.
 // This requires a working embedding endpoint; if unavailable, executeSparql and
-// the SPARQL schema-discovery query still proves the durable client + @wazoo/tools wiring.
+// the SPARQL schema-discovery query still proves the durable client + local tool wiring.
 let searchIndexBuilt = false
 try {
   const reindexResult = await client.reindex()
@@ -70,7 +70,7 @@ try {
   )
 }
 
-const tools = createTools({ client })
+const tools = await createWorldsAgentTools(provider, CONTAINER, "full")
 console.log(`TOOLS   ${Object.keys(tools).join(", ")}`)
 
 const toolOptions = { toolCallId: "durable-smoke", messages: [], context: {} } as never
@@ -97,8 +97,7 @@ console.log(
 
 const schemaDiscoveryRes = (await tools.executeSparql.execute!(
   {
-    query:
-      "SELECT ?type ?predicate WHERE { ?subject a ?type ; ?predicate ?object } LIMIT 20",
+    query: "SELECT ?type ?predicate WHERE { ?subject a ?type ; ?predicate ?object } LIMIT 20",
   },
   toolOptions
 )) as {
@@ -153,9 +152,11 @@ if (!mechanicalPass) {
 console.log("PASS: Durable (worlds-sqlite) mechanical phase verified")
 console.log("")
 console.log("Summary:")
-console.log(`  - @wazoo/tools createTools wired onto WorldsProvider.getClientForContainer: OK`)
+console.log(`  - Local Worlds tool surface wired onto WorldsProvider.getClientForContainer: OK`)
 console.log(`  - executeSparql on durable SQLite store: ${bindings.length} worksFor binding(s)`)
-console.log(`  - SPARQL schema discovery on durable SQLite store: ${schemaBindings.length} binding(s)`)
+console.log(
+  `  - SPARQL schema discovery on durable SQLite store: ${schemaBindings.length} binding(s)`
+)
 if (searchIndexBuilt) {
   console.log(
     `  - searchWorld on durable SQLite store (FTS5 index): ${searchPass ? "OK" : "FAILED"}`

@@ -97,8 +97,8 @@ models against the same indexed data.
   (`claimText`, `claimSubject`, …). Search runs a bounded SPARQL query with
   AND/OR keyword matching and proper-noun filters, then places facts after the
   first 10 raw results with deduplication.
-- **Agentic tools**: `@wazoo/tools` is wired for separate agent-tool smoke
-  workflows. The standard MemoryBench provider path does not itself run an
-  agentic SPARQL reasoning loop.
+- **Agentic tools**: the local Worlds tool surface is available for separate
+  agent-tool smoke workflows. The standard MemoryBench provider path does not
+  itself run an agentic SPARQL reasoning loop.
 - **Judge rubric**: Default/temporal judge prompts include semantic-equivalence
   rules (`src/prompts/defaults.ts`) to reduce flip-flops on paraphrases.

@@ -150,7 +150,7 @@ export function shortHash(text: string): string {
  * Prefix aliases that would over-merge are intentionally NOT matched:
  * "mel" stays distinct from "melanie", and "harborview" the person from
  * "harborview-medical-center". Cross-session and embedding-similar aliases
- * are the job of the entity-resolution layer (@wazoo/tools), not the
+ * are the job of the entity-resolution layer (when enabled), not the
  * per-session emitter.
  *
  * The registry memoizes every visited key so all variants converge on the
@@ -231,7 +231,7 @@ export function dedupeClaims(claims: ExtractedClaim[]): ExtractedClaim[] {
  *   convergeAlias, which collapses plurals and legal suffixes ("Acme Corp"
  *   vs "Acme") within the session.
  * - The session itself is urn:session:{sessionId}. All identity remains
- *   session-scoped by design; the @wazoo/tools entity-resolution layer maps
+ *   session-scoped by design; the entity-resolution layer maps
  *   these URNs onto cross-session canonical IDs.
  *
  * The emitted Turtle is line-deduplicated: statements re-asserted by later
