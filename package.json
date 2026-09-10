@@ -9,7 +9,9 @@
     "format": "prettier --write \"src/**/*.ts\" \"ui/**/*.tsx\" \"ui/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"ui/**/*.tsx\" \"ui/**/*.ts\"",
     "smoke:extraction": "bun run scripts/smoke-extraction.ts",
-    "smoke:agent-tools:inmemory": "bun run scripts/verify-inmemory-smoke.ts"
+    "smoke:agent-tools:inmemory": "bun run scripts/verify-inmemory-smoke.ts",
+    "models:tfjs-use": "bun run scripts/download-tfjs-use.ts",
+    "smoke:tfjs-use": "bun run scripts/verify-tfjs-use.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.49",

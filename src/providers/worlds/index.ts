@@ -19,6 +19,11 @@ import { SESSION_MESSAGE_SHACL_SHAPE, validateGraph, validateShaclGraph } from "
 import { GEMINI_EMBEDDING_DIMENSIONS, GeminiEmbeddingService } from "./gemini-embedding-service"
 import { OpenAIEmbeddingService } from "./openai-embedding-service"
 import { CachedEmbeddingService } from "./cached-embedding-service"
+import {
+  TFJS_USE_EMBEDDING_DIMENSIONS,
+  TFJS_USE_MODEL_DIR,
+  TfjsUseEmbeddingService,
+} from "./tfjs-use-embedding-service"
 import { extractFactsToTurtle } from "./extraction"
 import { dedupeRankedById, sortRankedByScore } from "./search-contract"
 
@@ -68,17 +73,24 @@ export class WorldsProvider implements Provider {
     const dbPath = join(this.baseDir, `${sanitizePath(containerTag)}.db`)
     const db = new Database(dbPath)
 
+    const configuredEmbeddingProvider = process.env.EMBEDDING_PROVIDER || ""
+    const useTfjsUse =
+      configuredEmbeddingProvider === "tfjs-use" || configuredEmbeddingProvider === "tfjs"
     const useOpenAIOrOllama =
-      Boolean(process.env.OPENAI_BASE_URL) ||
-      process.env.EMBEDDING_PROVIDER === "ollama" ||
-      process.env.EMBEDDING_PROVIDER === "openai" ||
-      !this.apiKey
+      !useTfjsUse &&
+      (Boolean(process.env.OPENAI_BASE_URL) ||
+        configuredEmbeddingProvider === "ollama" ||
+        configuredEmbeddingProvider === "openai" ||
+        !this.apiKey)
 
-    const embeddingService = useOpenAIOrOllama
-      ? new OpenAIEmbeddingService()
-      : this.apiKey
-        ? new GeminiEmbeddingService(this.apiKey)
-        : undefined
+    const tfjsUseModelDir = process.env.TFJS_USE_MODEL_DIR || TFJS_USE_MODEL_DIR
+    const embeddingService = useTfjsUse
+      ? new TfjsUseEmbeddingService(tfjsUseModelDir)
+      : useOpenAIOrOllama
+        ? new OpenAIEmbeddingService()
+        : this.apiKey
+          ? new GeminiEmbeddingService(this.apiKey)
+          : undefined
 
     // Wrap with a shared content-addressed cache (data/cache/embeddings/,
     // per #18/#22) so fresh runs re-embed nothing. Label is provider/model
@@ -87,19 +99,24 @@ export class WorldsProvider implements Provider {
     // different base URL (local Ollama vs remote OpenAI-compatible) misses
     // instead of reusing stale vectors. Gemini's endpoint is fixed, so no
     // scope is needed for it.
-    const embeddingProvider =
-      process.env.EMBEDDING_PROVIDER ||
-      (process.env.OPENAI_BASE_URL ? "openai" : !this.apiKey ? "ollama" : "gemini")
+    const embeddingProvider = useTfjsUse
+      ? "tfjs-use"
+      : configuredEmbeddingProvider ||
+        (process.env.OPENAI_BASE_URL ? "openai" : !this.apiKey ? "ollama" : "gemini")
     const embeddingModel =
       embeddingProvider === "gemini"
         ? "gemini-embedding-2"
-        : process.env.EMBEDDING_MODEL || "nomic-embed-text"
+        : embeddingProvider === "tfjs-use"
+          ? "universal-sentence-encoder-lite"
+          : process.env.EMBEDDING_MODEL || "nomic-embed-text"
     const embeddingScope =
       embeddingProvider === "gemini"
         ? undefined
-        : process.env.EMBEDDING_BASE_URL ||
-          process.env.OPENAI_BASE_URL ||
-          "http://localhost:11434/v1"
+        : embeddingProvider === "tfjs-use"
+          ? tfjsUseModelDir
+          : process.env.EMBEDDING_BASE_URL ||
+            process.env.OPENAI_BASE_URL ||
+            "http://localhost:11434/v1"
     const cachedEmbeddingService = embeddingService
       ? new CachedEmbeddingService(
           embeddingService,
@@ -118,7 +135,11 @@ export class WorldsProvider implements Provider {
       path: dbPath,
       db,
       embeddingService: cachedEmbeddingService,
-      vectorDimensions: embeddingService ? 768 : undefined,
+      vectorDimensions: embeddingService
+        ? useTfjsUse
+          ? TFJS_USE_EMBEDDING_DIMENSIONS
+          : 768
+        : undefined,
       searchIndexOnImport: "incremental",
     })
     this.clients.set(containerTag, client)

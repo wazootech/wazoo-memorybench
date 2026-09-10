@@ -10,17 +10,18 @@ Adapter for `@worlds/sdk` (graph-backed memory / RAG provider) in MemoryBench.
 | `OPENAI_API_KEY` | When using OpenAI-compatible embeddings or judge/answer | API key for the selected OpenAI-compatible endpoint or judge backend. |
 | `ANTHROPIC_API_KEY` | Alt judge | Alternative judge backend. |
 | `DEEPSEEK_API_KEY` | When using DeepSeek extraction or judge | DeepSeek extraction/judge credentials. |
-| `EMBEDDING_PROVIDER` | Optional | `ollama` or `openai`; defaults to Gemini when a Google key is present, otherwise Ollama-compatible mode. |
+| `EMBEDDING_PROVIDER` | Optional | `tfjs-use`, `ollama`, or `openai`; defaults to Gemini when a Google key is present, otherwise Ollama-compatible mode. |
+| `TFJS_USE_MODEL_DIR` | Optional | Local TF.js USE model directory; defaults to ignored `data/models/tfjs-use`. |
 | `EMBEDDING_MODEL` | Optional | Defaults to `nomic-embed-text` for Ollama/OpenAI-compatible mode. |
 | `EMBEDDING_BASE_URL` | Optional | OpenAI-compatible embeddings endpoint; otherwise `OPENAI_BASE_URL` or local Ollama at `http://localhost:11434/v1`. |
 | `EXTRACTION_PROVIDER` | Optional | `gemini`, `ollama`, `openai`, `deepseek`, or `none`; defaults to Gemini unless `OPENAI_BASE_URL` is set. |
 
 Nomic embeddings are already supported through the OpenAI-compatible embedding
-adapter. The default local target is Ollama's `nomic-embed-text` endpoint; the
-provider does not install or supervise Ollama itself. TF.js Universal Sentence
-Encoder is a viable offline alternative, but it is not wired into this
-MemoryBench adapter yet and would require an `EmbeddingService` adapter with a
-fixed vector dimension.
+adapter. The provider does not install or supervise Ollama itself. For a local
+CPU-only path, `EMBEDDING_PROVIDER=tfjs-use` uses the 512-dimensional TF.js
+Universal Sentence Encoder Lite adapter. Download its model artifacts once with
+`bun run models:tfjs-use`; the ignored files are reused across runs. Verify the
+cached adapter with `bun run smoke:tfjs-use`.
 
 ## Phase mapping
 
@@ -28,7 +29,7 @@ fixed vector dimension.
 | :------------- | :------------- |
 | **Ingest** | Session messages → RDF Turtle → `client.import()`; strict structural and SHACL validation blocks the session before either raw or extracted RDF is imported. |
 | **Extract** | Optional LLM JSON claims → a constrained domain RDF emitter; malformed extraction, invalid RDF, or extraction failure is fatal unless `EXTRACTION_PROVIDER=none`. |
-| **Index** | Incremental projection during each committed `client.import()`; `reindexWorld` is reserved for repair, audit, or bulk-import completion. |
+| **Index** | Incremental projection during each committed `client.import()`; `reindexWorld` is reserved for repair, audit, or bulk-import completion. TF.js USE supplies 512-dimensional vectors when selected. |
 | **Search** | Hybrid `client.search()` plus a bounded SPARQL fact lookup on `worlds:Claim`; raw ranked hits are returned before the fact-claim complement. |
 | **Answer** | MemoryBench answer layer — configurable LLM via `-m`. |
 | **Evaluate** | MemoryBench judge — MemScore reporting via `-j`. |
@@ -89,8 +90,8 @@ models against the same indexed data.
   `bun:sqlite`; the database files remain available for debugging and
   postmortem analysis.
 - **Hybrid search**: With a working embedding endpoint, the configured model is
-  combined with FTS5 using the Worlds search index. Local Nomic via Ollama is
-  the default non-Gemini path.
+  combined with FTS5 using the Worlds search index. TF.js USE is the local
+  CPU-friendly path; Nomic via Ollama remains available as an alternative.
 - **Per-term fallback**: FTS5 uses implicit AND between terms; the provider
   broadens with per-term OR merge when the full query matches nothing.
 - **Fact layer + SPARQL**: Ingest writes `worlds:*Claim` triples
