@@ -65,6 +65,10 @@ const SCHEMA_REFERENCE = `SPARQL Graph Schema & Multi-Hop Traversal:
   worlds:Claim — worlds:claimSubject, worlds:claimAction, worlds:claimObject, worlds:claimText, schema:about, prov:wasDerivedFrom
   schema:Conversation / schema:Message — schema:hasPart, schema:text, schema:position, schema:author, schema:creator
 
+- Schema discovery without a dedicated schema tool:
+  SELECT ?type ?predicate WHERE { ?subject a ?type ; ?predicate ?object } LIMIT 20
+  For counts, use: SELECT ?type (COUNT(*) AS ?n) WHERE { ?s a ?type } GROUP BY ?type ORDER BY DESC(?n) LIMIT 20
+
 - Multi-Hop SPARQL Query Examples (always include the two PREFIX lines when using prov:/worlds:):
   * Person-to-Organization employment:
     PREFIX prov: <http://www.w3.org/ns/prov#>

@@ -1,7 +1,7 @@
 /**
  * Agent tool wiring: exposes wazoo-tools' AI SDK tool surface over a
  * WorldsProvider container so agents can query the extracted graph
- * (searchWorld / searchEntities, executeSparql, discoverSchema, importRdf,
+ * (searchWorld, executeSparql, importRdf,
  * exportRdf) without touching provider internals.
  *
  * Consumes the canonical AI SDK tool veneer published from wazoo-tools as

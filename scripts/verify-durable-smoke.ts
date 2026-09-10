@@ -10,7 +10,7 @@ import { createTools } from "@wazoo/tools"
 //
 // searchWorld requires a working embedding endpoint (Gemini/OpenAI/Ollama)
 // and a rebuilt search index. When none is available, this script proves
-// the index-independent surfaces (executeSparql, discoverSchema) and
+// the index-independent executeSparql surface and
 // records that searchWorld needs an embedding endpoint.
 //
 // Run on the PR #53 branch (chore/jsr-tools-import):
@@ -56,7 +56,7 @@ console.log("FACTS   imported pre-extracted Turtle (worksFor triple)")
 
 // Build/rebuild the FTS5 search index now that the facts are in the quad store.
 // This requires a working embedding endpoint; if unavailable, executeSparql and
-// discoverSchema still prove the durable client + @wazoo/tools wiring.
+// the SPARQL schema-discovery query still proves the durable client + @wazoo/tools wiring.
 let searchIndexBuilt = false
 try {
   const reindexResult = await client.reindex()
@@ -95,13 +95,21 @@ console.log(
   `SPARQL  success=${sparqlRes.success} | ${bindings.length} worksFor bindings: ${worksForPairs.join(" | ") || "(none)"}`
 )
 
-const schemaRes = (await tools.discoverSchema.execute!({}, toolOptions)) as {
+const schemaDiscoveryRes = (await tools.executeSparql.execute!(
+  {
+    query:
+      "SELECT ?type ?predicate WHERE { ?subject a ?type ; ?predicate ?object } LIMIT 20",
+  },
+  toolOptions
+)) as {
   success: boolean
-  data?: unknown
+  data?: { results?: { bindings?: Array<Record<string, { value: string }>> } }
   error?: string
 }
-const schemaStr = JSON.stringify(schemaRes.data ?? {})
-console.log(`SCHEMA  success=${schemaRes.success} | ${schemaStr.length} chars of ontology surface`)
+const schemaBindings = schemaDiscoveryRes.data?.results?.bindings ?? []
+console.log(
+  `SCHEMA  success=${schemaDiscoveryRes.success} | ${schemaBindings.length} type/predicate bindings`
+)
 
 // searchWorld requires the FTS5 index; report status
 let searchPass = false
@@ -130,13 +138,14 @@ console.log("\n--- Verdict ---")
 const mechanicalPass =
   sparqlRes.success &&
   bindings.length > 0 &&
-  schemaRes.success &&
+  schemaDiscoveryRes.success &&
+  schemaBindings.length > 0 &&
   (searchIndexBuilt ? searchPass : true) // searchWorld is conditional on embeddings
 
 if (!mechanicalPass) {
   console.error("FAIL: Durable mechanical phase failed")
   if (!sparqlRes.success) console.error(`  sparql error: ${sparqlRes.error}`)
-  if (!schemaRes.success) console.error(`  schema error: ${schemaRes.error}`)
+  if (!schemaDiscoveryRes.success) console.error(`  schema error: ${schemaDiscoveryRes.error}`)
   if (searchIndexBuilt && !searchPass) console.error("  searchWorld failed")
   process.exit(1)
 }
@@ -146,7 +155,7 @@ console.log("")
 console.log("Summary:")
 console.log(`  - @wazoo/tools createTools wired onto WorldsProvider.getClientForContainer: OK`)
 console.log(`  - executeSparql on durable SQLite store: ${bindings.length} worksFor binding(s)`)
-console.log(`  - discoverSchema on durable SQLite store: ${schemaStr.length} chars`)
+console.log(`  - SPARQL schema discovery on durable SQLite store: ${schemaBindings.length} binding(s)`)
 if (searchIndexBuilt) {
   console.log(
     `  - searchWorld on durable SQLite store (FTS5 index): ${searchPass ? "OK" : "FAILED"}`

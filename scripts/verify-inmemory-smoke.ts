@@ -174,13 +174,20 @@ const bindings = sparqlRes.data?.results?.bindings ?? []
 console.log(`SPARQL  success=${sparqlRes.success} | ${bindings.length} worksFor bindings`)
 bindings.forEach((b) => console.log(`         ${b.person?.value} -> ${b.org?.value}`))
 
-const schemaRes = (await tools.discoverSchema.execute!({}, toolOptions)) as {
+const schemaDiscoveryRes = (await tools.executeSparql.execute!(
+  {
+    query:
+      "SELECT ?type ?predicate WHERE { ?subject a ?type ; ?predicate ?object } LIMIT 20",
+  },
+  toolOptions
+)) as {
   success: boolean
-  data?: unknown
+  data?: { results?: { bindings?: Array<Record<string, { value: string }>> } }
   error?: string
 }
+const schemaBindings = schemaDiscoveryRes.data?.results?.bindings ?? []
 console.log(
-  `SCHEMA  success=${schemaRes.success} | ${JSON.stringify(schemaRes.data ?? {}).length} chars`
+  `SCHEMA  success=${schemaDiscoveryRes.success} | ${schemaBindings.length} type/predicate bindings`
 )
 
 const mechanicalPass =
@@ -188,7 +195,8 @@ const mechanicalPass =
   searchHits.length > 0 &&
   sparqlRes.success &&
   bindings.length > 0 &&
-  schemaRes.success
+  schemaDiscoveryRes.success &&
+  schemaBindings.length > 0
 
 console.log("\n--- Verdict ---")
 if (!mechanicalPass) {
