@@ -16,8 +16,6 @@ import { logger } from "../../utils/logger"
 import { WORLDS_PROMPTS } from "./prompts"
 import { PROV, RDF, SCHEMA, TURTLE_PREFIXES, WORLDS, XSD } from "./ontology"
 import { SESSION_MESSAGE_SHACL_SHAPE, validateGraph, validateShaclGraph } from "./shapes"
-import { GEMINI_EMBEDDING_DIMENSIONS, GeminiEmbeddingService } from "./gemini-embedding-service"
-import { OpenAIEmbeddingService } from "./openai-embedding-service"
 import { CachedEmbeddingService } from "./cached-embedding-service"
 import {
   TFJS_USE_EMBEDDING_DIMENSIONS,
@@ -73,57 +71,17 @@ export class WorldsProvider implements Provider {
     const dbPath = join(this.baseDir, `${sanitizePath(containerTag)}.db`)
     const db = new Database(dbPath)
 
-    const configuredEmbeddingProvider = process.env.EMBEDDING_PROVIDER || ""
-    const useTfjsUse =
-      configuredEmbeddingProvider === "tfjs-use" || configuredEmbeddingProvider === "tfjs"
-    const useOpenAIOrOllama =
-      !useTfjsUse &&
-      (Boolean(process.env.OPENAI_BASE_URL) ||
-        configuredEmbeddingProvider === "ollama" ||
-        configuredEmbeddingProvider === "openai" ||
-        !this.apiKey)
+    const modelDir = process.env.TFJS_USE_MODEL_DIR || TFJS_USE_MODEL_DIR
+    const embeddingService = new TfjsUseEmbeddingService(modelDir)
 
-    const tfjsUseModelDir = process.env.TFJS_USE_MODEL_DIR || TFJS_USE_MODEL_DIR
-    const embeddingService = useTfjsUse
-      ? new TfjsUseEmbeddingService(tfjsUseModelDir)
-      : useOpenAIOrOllama
-        ? new OpenAIEmbeddingService()
-        : this.apiKey
-          ? new GeminiEmbeddingService(this.apiKey)
-          : undefined
-
-    // Wrap with a shared content-addressed cache (data/cache/embeddings/,
-    // per #18/#22) so fresh runs re-embed nothing. Label is provider/model
-    // qualified so a model swap misses instead of poisoning, and scoped to
-    // the resolved embedding endpoint so the same provider/model behind a
-    // different base URL (local Ollama vs remote OpenAI-compatible) misses
-    // instead of reusing stale vectors. Gemini's endpoint is fixed, so no
-    // scope is needed for it.
-    const embeddingProvider = useTfjsUse
-      ? "tfjs-use"
-      : configuredEmbeddingProvider ||
-        (process.env.OPENAI_BASE_URL ? "openai" : !this.apiKey ? "ollama" : "gemini")
-    const embeddingModel =
-      embeddingProvider === "gemini"
-        ? "gemini-embedding-2"
-        : embeddingProvider === "tfjs-use"
-          ? "universal-sentence-encoder-lite"
-          : process.env.EMBEDDING_MODEL || "nomic-embed-text"
-    const embeddingScope =
-      embeddingProvider === "gemini"
-        ? undefined
-        : embeddingProvider === "tfjs-use"
-          ? tfjsUseModelDir
-          : process.env.EMBEDDING_BASE_URL ||
-            process.env.OPENAI_BASE_URL ||
-            "http://localhost:11434/v1"
-    const cachedEmbeddingService = embeddingService
-      ? new CachedEmbeddingService(
-          embeddingService,
-          `${embeddingProvider}/${embeddingModel}`,
-          embeddingScope
-        )
-      : undefined
+    // WorldsProvider deliberately has one embedding path: the local,
+    // CPU-friendly TF.js Universal Sentence Encoder Lite model. Keep its
+    // content-addressed cache model-qualified and scoped to the model files.
+    const cachedEmbeddingService = new CachedEmbeddingService(
+      embeddingService,
+      "tfjs-use/universal-sentence-encoder-lite",
+      modelDir
+    )
 
     // createSqliteWorldsSdk wires the in-house WazooSparqlEngine over the
     // bun:sqlite-backed SqliteStore (the Comunica/traqula closure silently
@@ -135,11 +93,7 @@ export class WorldsProvider implements Provider {
       path: dbPath,
       db,
       embeddingService: cachedEmbeddingService,
-      vectorDimensions: embeddingService
-        ? useTfjsUse
-          ? TFJS_USE_EMBEDDING_DIMENSIONS
-          : 768
-        : undefined,
+      vectorDimensions: TFJS_USE_EMBEDDING_DIMENSIONS,
       searchIndexOnImport: "incremental",
     })
     this.clients.set(containerTag, client)

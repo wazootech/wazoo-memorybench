@@ -13,12 +13,12 @@ import { createSqliteWorldsSdk, type SqliteWorldsSdk } from "@worlds/sqlite"
  * runs, constructing the SDK exactly like WorldsProvider.getClient does
  * (bun:sqlite Database, 768-dim embedding service, searchIndexOnImport
  * "disabled"), with deterministic offline embeddings so no network or
- * ollama is needed.
+ * external embedding service is needed.
  */
 
-const VECTOR_DIMENSIONS = 768
+const VECTOR_DIMENSIONS = 512
 
-/** Deterministic offline embedder mirroring the provider's 768-dim wiring. */
+/** Deterministic offline embedder mirroring the provider's 512-dim wiring. */
 class DeterministicEmbeddingService implements EmbeddingService {
   async embed(texts: string[]): Promise<Array<Float32Array | number[]>> {
     return texts.map((text) => {

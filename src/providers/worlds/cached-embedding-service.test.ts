@@ -17,7 +17,7 @@ async function tempCacheRoot(): Promise<string> {
 }
 
 function fakeInner(
-  dims = 768,
+  dims = 512,
   vectors?: Float32Array[]
 ): {
   embed: (texts: string[]) => Promise<Float32Array[]>
@@ -46,7 +46,12 @@ describe("CachedEmbeddingService", () => {
   it("serves cache hits without calling the inner service", async () => {
     const root = await tempCacheRoot()
     const inner = fakeInner()
-    const svc = new CachedEmbeddingService(inner, "openai/nomic-embed-text", undefined, root)
+    const svc = new CachedEmbeddingService(
+      inner,
+      "tfjs-use/universal-sentence-encoder-lite",
+      undefined,
+      root
+    )
 
     const a = await svc.embed(["hello world"])
     const b = await svc.embed(["hello world"])
@@ -58,35 +63,45 @@ describe("CachedEmbeddingService", () => {
 
   it("treats a corrupt/mismatched entry as a miss and re-embeds", async () => {
     const root = await tempCacheRoot()
-    const inner = fakeInner(768)
-    const svc = new CachedEmbeddingService(inner, "openai/nomic-embed-text", undefined, root)
+    const inner = fakeInner(512)
+    const svc = new CachedEmbeddingService(
+      inner,
+      "tfjs-use/universal-sentence-encoder-lite",
+      undefined,
+      root
+    )
 
-    // First embed writes a correct 768-d entry.
+    // First embed writes a correct 512-d entry.
     await svc.embed(["poison me"])
 
-    // Corrupt the entry: dims claims 768 but only 3 values stored.
-    const dir = join(root, "openai/nomic-embed-text")
+    // Corrupt the entry: dims claims 512 but only 3 values stored.
+    const dir = join(root, "tfjs-use/universal-sentence-encoder-lite")
     await writeFile(
       join(dir, `${sha("poison me")}.json`),
-      JSON.stringify({ dims: 768, values: [0.1, 0.2, 0.3] })
+      JSON.stringify({ dims: 512, values: [0.1, 0.2, 0.3] })
     )
 
     const result = await svc.embed(["poison me"])
 
     // Mismatch → miss → re-embedded with the inner service.
     expect(inner.calls()).toBe(2)
-    expect((result[0] as Float32Array).length).toBe(768)
+    expect((result[0] as Float32Array).length).toBe(512)
   })
 
   it("does not fail the embed when the cache cannot be written (best-effort writes)", async () => {
     const root = await tempCacheRoot()
     const inner = fakeInner(4)
-    const svc = new CachedEmbeddingService(inner, "openai/nomic-embed-text", undefined, root)
+    const svc = new CachedEmbeddingService(
+      inner,
+      "tfjs-use/universal-sentence-encoder-lite",
+      undefined,
+      root
+    )
 
     // Make the label directory path unwritable by creating a FILE where the
     // directory must be created (the parent dir must exist first).
-    await mkdir(join(root, "openai"), { recursive: true })
-    await writeFile(join(root, "openai/nomic-embed-text"), "")
+    await mkdir(join(root, "tfjs-use"), { recursive: true })
+    await writeFile(join(root, "tfjs-use/universal-sentence-encoder-lite"), "")
 
     const result = await svc.embed(["hello", "world"])
 
@@ -96,27 +111,27 @@ describe("CachedEmbeddingService", () => {
     expect(inner.calls()).toBe(1)
   })
 
-  it("scopes cache entries to the resolved base URL", async () => {
+  it("scopes cache entries to the resolved model directory", async () => {
     const root = await tempCacheRoot()
     const innerA = fakeInner()
     const innerB = fakeInner()
     const svcA = new CachedEmbeddingService(
       innerA,
-      "openai/nomic-embed-text",
-      "http://localhost:11434/v1",
+      "tfjs-use/universal-sentence-encoder-lite",
+      "/models/tfjs-use-a",
       root
     )
     const svcB = new CachedEmbeddingService(
       innerB,
-      "openai/nomic-embed-text",
-      "https://embeddings.example.com/v1",
+      "tfjs-use/universal-sentence-encoder-lite",
+      "/models/tfjs-use-b",
       root
     )
 
     await svcA.embed(["same text"])
     await svcB.embed(["same text"])
 
-    // Same provider/model label but different base URLs → different cache dirs → both miss.
+    // Same provider/model label but different model directories → different cache dirs → both miss.
     expect(innerA.calls()).toBe(1)
     expect(innerB.calls()).toBe(1)
 
@@ -126,18 +141,12 @@ describe("CachedEmbeddingService", () => {
     expect(innerA.calls()).toBe(1)
     expect(innerB.calls()).toBe(1)
 
-    // Entries landed in distinct scope-hashed directories keyed by base URL.
-    const scopeA = createHash("sha256")
-      .update("http://localhost:11434/v1")
-      .digest("hex")
-      .slice(0, 12)
-    const scopeB = createHash("sha256")
-      .update("https://embeddings.example.com/v1")
-      .digest("hex")
-      .slice(0, 12)
+    // Entries landed in distinct scope-hashed directories keyed by model directory.
+    const scopeA = createHash("sha256").update("/models/tfjs-use-a").digest("hex").slice(0, 12)
+    const scopeB = createHash("sha256").update("/models/tfjs-use-b").digest("hex").slice(0, 12)
     const hash = sha("same text")
-    const fileA = join(root, "openai/nomic-embed-text", scopeA, `${hash}.json`)
-    const fileB = join(root, "openai/nomic-embed-text", scopeB, `${hash}.json`)
+    const fileA = join(root, "tfjs-use/universal-sentence-encoder-lite", scopeA, `${hash}.json`)
+    const fileB = join(root, "tfjs-use/universal-sentence-encoder-lite", scopeB, `${hash}.json`)
     expect(await readFile(fileA, "utf8")).toBeTruthy()
     expect(await readFile(fileB, "utf8")).toBeTruthy()
     expect(scopeA).not.toBe(scopeB)

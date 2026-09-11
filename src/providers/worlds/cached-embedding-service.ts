@@ -13,9 +13,8 @@ interface CachedVector {
 }
 
 function fileFor(root: string, label: string, hash: string): string {
-  // The label is `{provider}/{model}` (plus an endpoint-scope hash) used as
-  // nested dirs; sanitize each segment so model tags like "qwen2.5-coder:7b"
-  // survive on Windows (see #48).
+  // The label is `{provider}/{model}` (plus a model-scope hash) used as
+  // nested dirs; sanitize each segment so model tags survive on Windows.
   return join(
     root,
     ...label.split("/").map((segment) => sanitizePathSegment(segment)),
@@ -49,7 +48,7 @@ async function writeCache(file: string, vec: Float32Array | number[]): Promise<v
   await writeFile(file, JSON.stringify({ dims: arr.length, values: Array.from(arr) }), "utf8")
 }
 
-/** Short hex fingerprint of the resolved embedding endpoint for label scoping. */
+/** Short hex fingerprint of the resolved model scope for cache scoping. */
 function scopeHash(scope: string): string {
   return createHash("sha256").update(scope).digest("hex").slice(0, 12)
 }
@@ -58,7 +57,7 @@ function scopeHash(scope: string): string {
  * CachedEmbeddingService wraps any EmbeddingService with a content-addressed
  * on-disk cache under `data/cache/embeddings/{label}/`. Entries are keyed by
  * `sha256(text)` under a per-service label (`{provider}/{model}`, plus a
- * short hash of the resolved base URL when a scope is supplied) and are
+ * short hash of the resolved model scope when a scope is supplied) and are
  * immutable — never overwritten. A corrupt or mismatched entry is treated as
  * a miss and re-embedded (self-invalidating). Cache writes are best-effort:
  * an unwritable cache degrades to a slower, still-correct run, never a
