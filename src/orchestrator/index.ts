@@ -88,7 +88,7 @@ export class Orchestrator {
     } = options
 
     const judgeModelInfo = resolveModel(judgeModel)
-    const judgeName = (judgeModel === "local" ? "local" : judgeModelInfo.provider) as JudgeName
+    const judgeName = judgeModelInfo.provider as JudgeName
 
     logger.info(`Starting MemoryBench run: ${providerName} + ${benchmarkName}`)
     logger.info(`Run ID: ${runId}`)
@@ -319,7 +319,7 @@ export class Orchestrator {
   ): Promise<void> {
     await this.run({
       ...options,
-      judgeModel: options.judgeModel || "gpt-4o",
+      judgeModel: options.judgeModel || "deepseek-v4-flash",
       phases: ["ingest", "indexing"],
     })
   }
@@ -331,7 +331,7 @@ export class Orchestrator {
   ): Promise<void> {
     await this.run({
       ...options,
-      judgeModel: options.judgeModel || "gpt-4o",
+      judgeModel: options.judgeModel || "deepseek-v4-flash",
       phases: ["search"],
     })
   }

@@ -8,12 +8,12 @@ import { createWorldsAgentTools } from "../src/providers/worlds/agent-tools"
 // WorldsProvider.getClientForContainer works against the file-backed
 // SQLite store that the production wazoo provider uses.
 //
-// searchWorld requires a working embedding endpoint (Gemini/OpenAI/Ollama)
+// searchWorld requires the local TF.js USE model artifacts
 // and a rebuilt search index. When none is available, this script proves
 // the index-independent executeSparql surface and
-// records that searchWorld needs an embedding endpoint.
+// records that searchWorld needs the local embedding model.
 //
-// Run with a valid embedding endpoint:
+// Run after downloading the TF.js USE model:
 //   DEEPSEEK_API_KEY=test-key EXTRACTION_PROVIDER=none GEMINI_API_KEY=dummy \
 //     bun run scripts/verify-durable-smoke.ts
 
@@ -55,7 +55,7 @@ await client.import({
 console.log("FACTS   imported pre-extracted Turtle (worksFor triple)")
 
 // Build/rebuild the FTS5 search index now that the facts are in the quad store.
-// This requires a working embedding endpoint; if unavailable, executeSparql and
+// This requires TF.js USE model artifacts; if unavailable, executeSparql and
 // the SPARQL schema-discovery query still proves the durable client + local tool wiring.
 let searchIndexBuilt = false
 try {
@@ -66,7 +66,7 @@ try {
   )
 } catch (err) {
   console.log(
-    `INDEX   rebuild skipped (no working embedding endpoint): ${err instanceof Error ? err.message : String(err)}`
+    `INDEX   rebuild skipped (no TF.js USE model artifacts): ${err instanceof Error ? err.message : String(err)}`
   )
 }
 
@@ -126,7 +126,7 @@ if (searchIndexBuilt) {
     searchMsg += ` | top: ${JSON.stringify(searchHits[0].text?.slice(0, 80))}`
   }
 } else {
-  searchMsg = "SEARCH  skipped (search index not built — needs working embedding endpoint)"
+  searchMsg = "SEARCH  skipped (search index not built — needs TF.js USE model artifacts)"
 }
 
 console.log("\n--- Index-dependent surface ---")
@@ -162,8 +162,6 @@ if (searchIndexBuilt) {
     `  - searchWorld on durable SQLite store (FTS5 index): ${searchPass ? "OK" : "FAILED"}`
   )
 } else {
-  console.log(`  - searchWorld: requires a working embedding endpoint + reindex()`)
-  console.log(
-    `    (Gemini: GEMINI_API_KEY; OpenAI/Ollama: OPENAI_BASE_URL or EMBEDDING_PROVIDER=openai|ollama)`
-  )
+  console.log(`  - searchWorld: requires the TF.js USE model artifacts + reindex()`)
+  console.log("    Run `bun run models:tfjs-use` first, then retry this smoke.")
 }

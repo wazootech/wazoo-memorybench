@@ -70,21 +70,21 @@ export interface ExtractedClaim {
 export interface ExtractFactsOptions {
   /** When set, successful extractions are cached under this directory. */
   cacheDir?: string
-  /** Model provider for extraction ('gemini' | 'openai' | 'ollama' | 'deepseek') */
-  provider?: "gemini" | "openai" | "ollama" | "deepseek"
+  /** Model provider for extraction ('deepseek' | 'gemini' | 'openai') */
+  provider?: "deepseek" | "gemini" | "openai"
   baseUrl?: string
   model?: string
 }
 
 function resolveExtractionProvider(
   options?: ExtractFactsOptions
-): "gemini" | "openai" | "ollama" | "deepseek" {
+): "deepseek" | "gemini" | "openai" {
   if (options?.provider) return options.provider
-  return process.env.OPENAI_BASE_URL ? "ollama" : "gemini"
+  return "deepseek"
 }
 
 function resolveExtractionModel(
-  provider: "gemini" | "openai" | "ollama" | "deepseek",
+  provider: "deepseek" | "gemini" | "openai",
   options?: ExtractFactsOptions
 ): string {
   if (options?.model) return options.model
@@ -92,7 +92,7 @@ function resolveExtractionModel(
   if (provider === "deepseek") {
     return process.env.EXTRACTION_MODEL || "deepseek-v4-flash"
   }
-  return process.env.EXTRACTION_MODEL || "qwen2.5-coder:7b"
+  return process.env.EXTRACTION_MODEL || "gpt-4o-mini"
 }
 
 function sessionContentHash(session: UnifiedSession): string {
@@ -441,30 +441,18 @@ async function generateExtractionJson(
     return text
   }
 
-  const isOllamaOrOpenAI =
-    provider === "ollama" ||
-    provider === "openai" ||
-    (provider !== "gemini" &&
-      (options?.baseUrl ||
-        process.env.EXTRACTION_BASE_URL ||
-        process.env.OPENAI_BASE_URL ||
-        !apiKey))
-
-  const modelInstance = isOllamaOrOpenAI
+  const isOpenAI = provider === "openai"
+  const modelInstance = isOpenAI
     ? createOpenAI({
-        apiKey: apiKey || process.env.OPENAI_API_KEY || "ollama",
-        baseURL:
-          options?.baseUrl ||
-          process.env.EXTRACTION_BASE_URL ||
-          process.env.OPENAI_BASE_URL ||
-          "http://localhost:11434/v1",
+        apiKey: apiKey || process.env.OPENAI_API_KEY || "",
+        baseURL: options?.baseUrl || process.env.EXTRACTION_BASE_URL,
       })(model)
     : createGoogleGenerativeAI({ apiKey })(model)
 
   let lastErr: unknown
   for (let attempt = 0; attempt < EXTRACTION_MAX_RETRIES; attempt++) {
     try {
-      if (!isOllamaOrOpenAI) {
+      if (!isOpenAI) {
         await waitForGeminiQuota()
       }
       const { text } = await generateText({
@@ -489,7 +477,7 @@ async function generateExtractionJson(
 }
 
 /**
- * Extracts structured facts from a conversation session using Gemini or local Ollama,
+ * Extracts structured facts from a conversation session using DeepSeek, Gemini, or OpenAI,
  * then converts them to RDF Turtle triples.
  */
 export async function extractFactsToTurtle(

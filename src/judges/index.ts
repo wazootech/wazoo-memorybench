@@ -3,14 +3,12 @@ import { OpenAIJudge } from "./openai"
 import { AnthropicJudge } from "./anthropic"
 import { GoogleJudge } from "./google"
 import { DeepSeekJudge } from "./deepseek"
-import { LocalJudge } from "./local"
 
 const judges: Record<JudgeName, new () => Judge> = {
   openai: OpenAIJudge,
   anthropic: AnthropicJudge,
   google: GoogleJudge,
   deepseek: DeepSeekJudge,
-  local: LocalJudge,
 }
 
 export function createJudge(name: JudgeName): Judge {
@@ -25,5 +23,5 @@ export function getAvailableJudges(): JudgeName[] {
   return Object.keys(judges) as JudgeName[]
 }
 
-export { AnthropicJudge, DeepSeekJudge, GoogleJudge, LocalJudge, OpenAIJudge }
+export { AnthropicJudge, DeepSeekJudge, GoogleJudge, OpenAIJudge }
 export { buildJudgePrompt, getJudgePrompt, parseJudgeResponse } from "./base"

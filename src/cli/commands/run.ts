@@ -9,7 +9,7 @@ import { getAvailableBenchmarks } from "../../benchmarks"
 import { DEFAULT_ANSWERING_MODEL, listAvailableModels } from "../../utils/models"
 import { logger } from "../../utils/logger"
 
-const DEFAULT_JUDGE_MODEL = "gpt-4o"
+const DEFAULT_JUDGE_MODEL = "deepseek-v4-flash"
 
 interface RunArgs {
   provider?: string

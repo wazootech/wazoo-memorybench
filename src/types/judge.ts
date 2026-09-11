@@ -38,4 +38,4 @@ export interface Judge {
   getModel(): import("ai").LanguageModel | null
 }
 
-export type JudgeName = "openai" | "anthropic" | "google" | "deepseek" | "local"
+export type JudgeName = "openai" | "anthropic" | "google" | "deepseek"
