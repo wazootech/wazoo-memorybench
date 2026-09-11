@@ -31,6 +31,11 @@ export interface RankedCandidate {
   score: number | null
 }
 
+export interface ContentRankedCandidate extends RankedCandidate {
+  subject: string
+  text: string
+}
+
 /**
  * Deduplicates ranked search results on the contract's deterministic `id`
  * (shared across backends via buildSearchResultId). In ranked mode the
@@ -46,6 +51,30 @@ export function dedupeRankedById<T extends RankedCandidate>(results: T[], mode?:
       seen.set(r.id, r)
     } else if (ranked && existing.score !== null && r.score !== null && r.score > existing.score) {
       seen.set(r.id, r)
+    }
+  }
+  return [...seen.values()]
+}
+
+export function dedupeRankedByContent<T extends ContentRankedCandidate>(
+  results: T[],
+  mode?: SearchMode
+): T[] {
+  const ranked = isRankedMode(mode)
+  const seen = new Map<string, T>()
+  for (const result of results) {
+    const normalizedText = result.text.trim().toLowerCase().replace(/\s+/g, " ")
+    const key = `${result.subject}\u0000${normalizedText}`
+    const existing = seen.get(key)
+    if (!existing) {
+      seen.set(key, result)
+    } else if (
+      ranked &&
+      existing.score !== null &&
+      result.score !== null &&
+      result.score > existing.score
+    ) {
+      seen.set(key, result)
     }
   }
   return [...seen.values()]
