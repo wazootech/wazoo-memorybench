@@ -69,3 +69,5 @@ Providers can override judge prompts. See
 | `anthropic` | `@ai-sdk/anthropic`                                         | sonnet-4          |
 | `google`    | `@ai-sdk/google`                                            | gemini-2.5-flash  |
 | `deepseek`  | raw-fetch `DeepSeekClient` (`src/utils/deepseek-client.ts`) | deepseek-v4-flash |
+
+DeepSeek is the default judge for benchmark commands.

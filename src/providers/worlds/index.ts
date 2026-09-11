@@ -114,8 +114,7 @@ export class WorldsProvider implements Provider {
       const cacheDir = join(process.cwd(), "data", "cache", "extraction")
       if (process.env.EXTRACTION_PROVIDER !== "none") {
         const extractionProvider =
-          (process.env.EXTRACTION_PROVIDER as "gemini" | "ollama" | "openai" | "deepseek") ||
-          (process.env.OPENAI_BASE_URL ? "ollama" : "gemini")
+          (process.env.EXTRACTION_PROVIDER as "deepseek" | "gemini" | "openai") || "deepseek"
         // Extraction failures are fatal: continuing with only raw messages
         // would silently turn a graph benchmark into a raw-retrieval run.
         factsTurtle = await extractFactsToTurtle(this.apiKey, session, {

@@ -58,8 +58,6 @@ export function getJudgeConfig(judge: string): {
       return { apiKey: config.googleApiKey }
     case "deepseek":
       return { apiKey: config.deepseekApiKey, baseUrl: config.deepseekBaseUrl }
-    case "local":
-      return { apiKey: "local" }
     default:
       throw new Error(`Unknown judge: ${judge}`)
   }

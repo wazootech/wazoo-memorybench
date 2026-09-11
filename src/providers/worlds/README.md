@@ -10,7 +10,7 @@ Adapter for `@worlds/sdk` (graph-backed memory / RAG provider) in MemoryBench.
 | `ANTHROPIC_API_KEY` | Alt judge | Alternative judge backend. |
 | `DEEPSEEK_API_KEY` | When using DeepSeek extraction or judge | DeepSeek extraction/judge credentials. |
 | `TFJS_USE_MODEL_DIR` | Optional | Local TF.js USE model directory; defaults to ignored `data/models/tfjs-use`. |
-| `EXTRACTION_PROVIDER` | Optional | `gemini`, `ollama`, `openai`, `deepseek`, or `none`; defaults to Gemini unless `OPENAI_BASE_URL` is set. |
+| `EXTRACTION_PROVIDER` | Optional | `deepseek` (default), `gemini`, `openai`, or `none`. |
 
 WorldsProvider has one embedding path: the 512-dimensional, CPU-friendly TF.js
 Universal Sentence Encoder Lite adapter. Download its model artifacts once with
@@ -62,16 +62,16 @@ different provider/model or model directory.
 
 ```bash
 bun install
-cp .env.example .env.local   # add API keys or local endpoint settings
+cp .env.example .env.local   # add API keys
 
 # 1. Run LoCoMo benchmark (limited sample)
-bun run src/index.ts run -p worlds -b locomo -l 5 -r smoke-locomo-001 -j gemini-2.5-flash -m gemini-2.5-flash
+bun run src/index.ts run -p worlds -b locomo -l 5 -r smoke-locomo-001 -j deepseek-v4-flash -m gpt-4o
 
 # 2. Run LongMemEval benchmark
-bun run src/index.ts run -p worlds -b longmemeval -l 5 -r smoke-lme-001 -j gemini-2.5-flash -m gemini-2.5-flash
+bun run src/index.ts run -p worlds -b longmemeval -l 5 -r smoke-lme-001 -j deepseek-v4-flash -m gpt-4o
 
 # 3. Iterate on search/answer/evaluate — reuses ingested data and indexes
-bun run src/index.ts run -r smoke-lme-001 -f search -j gemini-2.5-flash -m gemini-2.5-flash
+bun run src/index.ts run -r smoke-lme-001 -f search -j deepseek-v4-flash -m gpt-4o
 ```
 
 Use `-f search` to skip ingest and indexing on subsequent runs. The file-backed
@@ -84,7 +84,7 @@ models against the same indexed data.
 - **Persistent storage**: `@worlds/sqlite` uses the Wazoo SPARQL engine over
   `bun:sqlite`; the database files remain available for debugging and
   postmortem analysis.
-- **Hybrid search**: The Worlds search index combines FTS5 with the 512-dimensional TF.js USE vectors. Model artifacts are local and cached; no embedding API or Ollama service is part of this provider.
+- **Hybrid search**: The Worlds search index combines FTS5 with the 512-dimensional TF.js USE vectors. Model artifacts are local and cached; no external embedding service is part of this provider.
 - **Per-term fallback**: FTS5 uses implicit AND between terms; the provider
   broadens with per-term OR merge when the full query matches nothing.
 - **Fact layer + SPARQL**: Ingest writes `worlds:*Claim` triples

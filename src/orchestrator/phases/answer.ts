@@ -34,7 +34,7 @@ function getAnsweringModel(modelAlias: string): {
     case "openai":
       return {
         client: createOpenAI({
-          apiKey: config.openaiApiKey || process.env.OPENAI_API_KEY || "ollama",
+          apiKey: config.openaiApiKey || process.env.OPENAI_API_KEY || "",
           baseURL: process.env.OPENAI_BASE_URL,
         }),
         modelConfig,

@@ -12,7 +12,7 @@
  *   DEEPSEEK_API_KEY=sk-... bun run scripts/smoke-extraction.ts
  *
  * Flags:
- *   --provider <deepseek|openai|ollama|gemini>  (default deepseek)
+ *   --provider <deepseek|openai|gemini>  (default deepseek)
  *   --cache-dir <path>     (default data/cache/extraction-smoke)
  *   --warm                  run the cached pass too (always-on by default)
  *   --bench <n>             run n TRUE-COLD passes (fresh cache dir per pass,
