@@ -11,7 +11,9 @@ import { sanitizePathSegment } from "./cache-path"
 import { logger } from "../../utils/logger"
 
 const EXTRACTION_MODEL = "gemini-2.5-flash"
+const EXTRACTION_MAX_TOKENS = 6000
 const EXTRACTION_MAX_RETRIES = 6
+const EXTRACTION_PARSE_RETRIES = 3
 const EXTRACTION_BASE_DELAY_MS = 4000
 
 const GEMINI_QUOTA_WINDOW_MS = 60_000
@@ -408,15 +410,14 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function generateExtractionJson(
+async function generateExtractionAttempt(
   apiKey: string,
   session: UnifiedSession,
-  options?: ExtractFactsOptions
+  options: ExtractFactsOptions | undefined,
+  prompt: string,
+  provider: "deepseek" | "gemini" | "openai",
+  model: string
 ): Promise<string> {
-  const prompt = buildFactExtractionPrompt(session)
-  const provider = resolveExtractionProvider(options)
-  const model = resolveExtractionModel(provider, options)
-
   // DeepSeek extraction goes through the shared raw-fetch DeepSeekClient (not
   // the AI SDK) for full control: JSON output mode + thinking disabled make
   // the response deterministic and fast, and the response carries exact usage
@@ -428,7 +429,7 @@ async function generateExtractionJson(
     const { text, usage } = await new DeepSeekClient().chatCompletion({
       model,
       prompt,
-      maxTokens: 1500,
+      maxTokens: EXTRACTION_MAX_TOKENS,
       temperature: 0,
       responseFormat: "json_object",
       thinking: "disabled",
@@ -449,19 +450,43 @@ async function generateExtractionJson(
       })(model)
     : createGoogleGenerativeAI({ apiKey })(model)
 
+  if (!isOpenAI) {
+    await waitForGeminiQuota()
+  }
+  const { text } = await generateText({
+    model: modelInstance,
+    prompt,
+    maxTokens: EXTRACTION_MAX_TOKENS,
+    temperature: 0,
+  } as Parameters<typeof generateText>[0])
+  return text
+}
+
+async function generateExtractionJson(
+  apiKey: string,
+  session: UnifiedSession,
+  options?: ExtractFactsOptions,
+  parseAttempt = 0
+): Promise<string> {
+  const provider = resolveExtractionProvider(options)
+  const model = resolveExtractionModel(provider, options)
+  const prompt = buildFactExtractionPrompt(session)
+  const retryInstruction =
+    parseAttempt > 0
+      ? "\n\nThe previous response was incomplete or malformed. Return the complete extraction as one valid JSON array. Do not truncate the response or wrap it in commentary."
+      : ""
   let lastErr: unknown
+
   for (let attempt = 0; attempt < EXTRACTION_MAX_RETRIES; attempt++) {
     try {
-      if (!isOpenAI) {
-        await waitForGeminiQuota()
-      }
-      const { text } = await generateText({
-        model: modelInstance,
-        prompt,
-        maxTokens: 4000,
-        temperature: 0,
-      } as Parameters<typeof generateText>[0])
-      return text
+      return await generateExtractionAttempt(
+        apiKey,
+        session,
+        options,
+        `${prompt}${retryInstruction}`,
+        provider,
+        model
+      )
     } catch (err) {
       lastErr = err
       const wait = EXTRACTION_BASE_DELAY_MS * 2 ** attempt
@@ -470,10 +495,38 @@ async function generateExtractionJson(
           attempt + 1
         }/${EXTRACTION_MAX_RETRIES} failed for ${session.sessionId}: ${err}. Retrying in ${wait}ms`
       )
-      await sleep(wait)
+      if (attempt < EXTRACTION_MAX_RETRIES - 1) {
+        await sleep(wait)
+      }
     }
   }
-  throw lastErr
+  throw lastErr ?? new Error(`Fact extraction failed for ${session.sessionId}`)
+}
+
+class ExtractionParseError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "ExtractionParseError"
+  }
+}
+
+function parseExtractionClaims(text: string, sessionId: string): ExtractedClaim[] {
+  const cleaned = text
+    .trim()
+    .replace(/^```json?\s*/i, "")
+    .replace(/```\s*$/, "")
+
+  try {
+    const claims = JSON.parse(cleaned) as ExtractedClaim[]
+    if (!Array.isArray(claims)) {
+      throw new Error("response was not a JSON array")
+    }
+    return claims
+  } catch (err) {
+    throw new ExtractionParseError(
+      `Fact extraction for ${sessionId} failed to parse JSON: ${String(err)}`
+    )
+  }
 }
 
 /**
@@ -516,23 +569,33 @@ export async function extractFactsToTurtle(
     }
   }
 
-  const text = await generateExtractionJson(apiKey, session, options)
+  let text = ""
+  let claims: ExtractedClaim[] | undefined
+  let lastParseError: ExtractionParseError | undefined
 
-  let claims: ExtractedClaim[]
-  try {
-    const cleaned = text
-      .trim()
-      .replace(/^```json?\s*/i, "")
-      .replace(/```\s*$/, "")
-    claims = JSON.parse(cleaned) as ExtractedClaim[]
-    if (!Array.isArray(claims)) {
-      throw new Error(`Fact extraction for ${session.sessionId} did not return a JSON array`)
+  for (let attempt = 0; attempt < EXTRACTION_PARSE_RETRIES; attempt++) {
+    try {
+      text = await generateExtractionJson(apiKey, session, options, attempt)
+      claims = parseExtractionClaims(text, session.sessionId)
+      break
+    } catch (err) {
+      if (!(err instanceof ExtractionParseError)) throw err
+      lastParseError = err
+      const retryNumber = attempt + 1
+      if (retryNumber < EXTRACTION_PARSE_RETRIES) {
+        logger.warn(
+          `${err.message}; retrying extraction parse ${retryNumber}/${EXTRACTION_PARSE_RETRIES - 1}`
+        )
+      }
     }
-  } catch (err) {
-    const message = `Fact extraction for ${session.sessionId} failed to parse JSON: ${String(err)}`
-    logger.error(message)
+  }
+
+  if (!claims) {
+    const error =
+      lastParseError ?? new Error(`Fact extraction for ${session.sessionId} returned no claims`)
+    logger.error(error.message)
     logger.debug(`Raw extraction response: ${text.slice(0, 500)}`)
-    throw new Error(message)
+    throw error
   }
 
   // The domain extraction prompt emits "domainClass" (the generic MEMORY
