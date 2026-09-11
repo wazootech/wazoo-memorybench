@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test"
 import {
+  dedupeRankedByContent,
   dedupeRankedById,
   isRankedMode,
   sortRankedByScore,
@@ -59,6 +60,44 @@ describe("dedupeRankedById", () => {
     const results = [mk("q1", 0.2), mk("q1", 0.9), mk("q1", 0.7)]
     const deduped = dedupeRankedById(results, "keyword")
     expect(deduped).toEqual([mk("q1", 0.9)])
+  })
+})
+
+describe("dedupeRankedByContent", () => {
+  it("collapses duplicate predicate rows while retaining the highest score", () => {
+    const results = [
+      {
+        id: "text",
+        subject: "urn:person:caroline",
+        text: "Caroline joined the group.",
+        score: 0.4,
+      },
+      {
+        id: "claim",
+        subject: "urn:person:caroline",
+        text: "  caroline joined   the group. ",
+        score: 0.9,
+      },
+      {
+        id: "other",
+        subject: "urn:person:caroline",
+        text: "Caroline visited the group.",
+        score: 0.8,
+      },
+    ]
+    const deduped = dedupeRankedByContent(results, "hybrid")
+    expect(deduped).toHaveLength(2)
+    expect(deduped[0].id).toBe("claim")
+    expect(deduped[0].score).toBe(0.9)
+    expect(deduped[1].id).toBe("other")
+  })
+
+  it("keeps identical text for different subjects", () => {
+    const results = [
+      { id: "a", subject: "urn:person:a", text: "Likes tea.", score: 0.5 },
+      { id: "b", subject: "urn:person:b", text: "Likes tea.", score: 0.8 },
+    ]
+    expect(dedupeRankedByContent(results, "semantic")).toHaveLength(2)
   })
 })
 

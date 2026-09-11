@@ -16,6 +16,7 @@ import { logger } from "../../utils/logger"
 import { WORLDS_PROMPTS } from "./prompts"
 import { PROV, RDF, SCHEMA, TURTLE_PREFIXES, WORLDS, XSD } from "./ontology"
 import { SESSION_MESSAGE_SHACL_SHAPE, validateGraph, validateShaclGraph } from "./shapes"
+import { dedupeRankedByContent } from "./search-contract"
 import { CachedEmbeddingService } from "./cached-embedding-service"
 import {
   TFJS_USE_EMBEDDING_DIMENSIONS,
@@ -240,7 +241,9 @@ export class WorldsProvider implements Provider {
     const client = await this.getClient(options.containerTag)
 
     const [searchResults, factClaimsRaw] = await Promise.all([
-      searchWithFallback(client, query).then((r) => enrichSearchResults(client, r)),
+      searchWithFallback(client, query)
+        .then((r) => enrichSearchResults(client, r))
+        .then((r) => dedupeRankedByContent(r)),
       queryFactClaims(client, query),
     ])
 
