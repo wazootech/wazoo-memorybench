@@ -6,11 +6,11 @@ Adapter for `@worlds/sdk` (graph-backed memory / RAG provider) in MemoryBench.
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `GOOGLE_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY` | When using Gemini | Powers fact extraction or Gemini judge/answer models. |
+| `GOOGLE_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY` | Optional judge/answer backend | Only used when explicitly selecting a Gemini judge or answer model; extraction uses DeepSeek. |
 | `ANTHROPIC_API_KEY` | Alt judge | Alternative judge backend. |
 | `DEEPSEEK_API_KEY` | When using DeepSeek extraction or judge | DeepSeek extraction/judge credentials. |
 | `TFJS_USE_MODEL_DIR` | Optional | Local TF.js USE model directory; defaults to ignored `data/models/tfjs-use`. |
-| `EXTRACTION_PROVIDER` | Optional | `deepseek` (default), `gemini`, `openai`, or `none`. |
+| `EXTRACTION_PROVIDER` | Optional | `deepseek` (default) or `none`. |
 
 WorldsProvider has one embedding path: the 512-dimensional, CPU-friendly TF.js
 Universal Sentence Encoder Lite adapter. Download its model artifacts once with

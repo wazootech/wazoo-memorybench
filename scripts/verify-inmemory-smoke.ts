@@ -132,7 +132,7 @@ console.log("=== In-memory agent-tools smoke verification ===")
 console.log("Container: wazootech/sparql-engine MemoryStore (in-memory SQLite)")
 
 const provider = new InMemoryWorldsProvider()
-await provider.initialize({ apiKey: process.env.GEMINI_API_KEY ?? "" })
+await provider.initialize({ apiKey: process.env.DEEPSEEK_API_KEY ?? "" })
 await provider.clear(CONTAINER)
 
 const ingestStart = performance.now()
@@ -176,8 +176,7 @@ bindings.forEach((b) => console.log(`         ${b.person?.value} -> ${b.org?.val
 
 const schemaDiscoveryRes = (await tools.executeSparql.execute!(
   {
-    query:
-      "SELECT ?type ?predicate WHERE { ?subject a ?type ; ?predicate ?object } LIMIT 20",
+    query: "SELECT ?type ?predicate WHERE { ?subject a ?type ; ?predicate ?object } LIMIT 20",
   },
   toolOptions
 )) as {

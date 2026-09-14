@@ -1,41 +1,16 @@
 import { createHash } from "node:crypto"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
-import { createGoogleGenerativeAI } from "@ai-sdk/google"
-import { createOpenAI } from "@ai-sdk/openai"
-import { generateText } from "ai"
 import type { UnifiedSession } from "../../types/unified"
 import { PROV, RDF, SCHEMA, TURTLE_PREFIXES, WORLDS } from "./ontology"
 import { validateShaclGraph } from "./shapes"
 import { sanitizePathSegment } from "./cache-path"
 import { logger } from "../../utils/logger"
 
-const EXTRACTION_MODEL = "gemini-2.5-flash"
+const EXTRACTION_MAX_TOKENS = 6000
 const EXTRACTION_MAX_RETRIES = 6
+const EXTRACTION_PARSE_RETRIES = 3
 const EXTRACTION_BASE_DELAY_MS = 4000
-
-const GEMINI_QUOTA_WINDOW_MS = 60_000
-const GEMINI_MAX_RPM = 18 // Keep under 20 RPM free tier cap
-const geminiTimestamps: number[] = []
-
-async function waitForGeminiQuota(): Promise<void> {
-  const now = Date.now()
-  while (geminiTimestamps.length > 0 && geminiTimestamps[0] < now - GEMINI_QUOTA_WINDOW_MS) {
-    geminiTimestamps.shift()
-  }
-  if (geminiTimestamps.length >= GEMINI_MAX_RPM) {
-    const oldest = geminiTimestamps[0] ?? now
-    const waitMs = oldest + GEMINI_QUOTA_WINDOW_MS - now + 1000
-    logger.debug(
-      `Gemini rate limiter: ${geminiTimestamps.length}/${GEMINI_MAX_RPM} RPM used, pacing ${(
-        waitMs / 1000
-      ).toFixed(1)}s`
-    )
-    await new Promise((resolve) => setTimeout(resolve, waitMs))
-    return waitForGeminiQuota()
-  }
-  geminiTimestamps.push(Date.now())
-}
 
 import { buildDomainRdfExtractionPrompt } from "../../prompts/extraction"
 import { DeepSeekClient } from "../../utils/deepseek-client"
@@ -70,29 +45,17 @@ export interface ExtractedClaim {
 export interface ExtractFactsOptions {
   /** When set, successful extractions are cached under this directory. */
   cacheDir?: string
-  /** Model provider for extraction ('deepseek' | 'gemini' | 'openai') */
-  provider?: "deepseek" | "gemini" | "openai"
-  baseUrl?: string
+  /** DeepSeek is the only supported extraction provider. */
+  provider?: "deepseek"
   model?: string
 }
 
-function resolveExtractionProvider(
-  options?: ExtractFactsOptions
-): "deepseek" | "gemini" | "openai" {
-  if (options?.provider) return options.provider
+function resolveExtractionProvider(_options?: ExtractFactsOptions): "deepseek" {
   return "deepseek"
 }
 
-function resolveExtractionModel(
-  provider: "deepseek" | "gemini" | "openai",
-  options?: ExtractFactsOptions
-): string {
-  if (options?.model) return options.model
-  if (provider === "gemini") return EXTRACTION_MODEL
-  if (provider === "deepseek") {
-    return process.env.EXTRACTION_MODEL || "deepseek-v4-flash"
-  }
-  return process.env.EXTRACTION_MODEL || "gpt-4o-mini"
+function resolveExtractionModel(options?: ExtractFactsOptions): string {
+  return options?.model || process.env.EXTRACTION_MODEL || "deepseek-v4-flash"
 }
 
 function sessionContentHash(session: UnifiedSession): string {
@@ -408,60 +371,44 @@ async function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-async function generateExtractionJson(
-  apiKey: string,
-  session: UnifiedSession,
-  options?: ExtractFactsOptions
-): Promise<string> {
-  const prompt = buildFactExtractionPrompt(session)
-  const provider = resolveExtractionProvider(options)
-  const model = resolveExtractionModel(provider, options)
-
-  // DeepSeek extraction goes through the shared raw-fetch DeepSeekClient (not
-  // the AI SDK) for full control: JSON output mode + thinking disabled make
-  // the response deterministic and fast, and the response carries exact usage
-  // telemetry. deepseek-v4-flash is a reasoning model — without
-  // `thinking: {type:"disabled"}` the output budget is consumed by reasoning
-  // tokens and calls run tens of seconds. A missing DEEPSEEK_API_KEY fails
-  // fast in the client.
-  if (provider === "deepseek") {
-    const { text, usage } = await new DeepSeekClient().chatCompletion({
-      model,
-      prompt,
-      maxTokens: 1500,
-      temperature: 0,
-      responseFormat: "json_object",
-      thinking: "disabled",
-    })
-    if (usage) {
-      logger.debug(
-        `DeepSeek extraction usage: ${usage.promptTokens} in / ${usage.completionTokens} out`
-      )
-    }
-    return text
+async function generateExtractionAttempt(prompt: string, model: string): Promise<string> {
+  // DeepSeek extraction goes through the shared raw-fetch client (not the AI
+  // SDK) for full control: JSON output mode + thinking disabled make the
+  // response deterministic and fast. The response carries exact usage
+  // telemetry, and the client fails fast when DEEPSEEK_API_KEY is missing.
+  const { text, usage } = await new DeepSeekClient().chatCompletion({
+    model,
+    prompt,
+    maxTokens: EXTRACTION_MAX_TOKENS,
+    temperature: 0,
+    responseFormat: "json_object",
+    thinking: "disabled",
+  })
+  if (usage) {
+    logger.debug(
+      `DeepSeek extraction usage: ${usage.promptTokens} in / ${usage.completionTokens} out`
+    )
   }
+  return text
+}
 
-  const isOpenAI = provider === "openai"
-  const modelInstance = isOpenAI
-    ? createOpenAI({
-        apiKey: apiKey || process.env.OPENAI_API_KEY || "",
-        baseURL: options?.baseUrl || process.env.EXTRACTION_BASE_URL,
-      })(model)
-    : createGoogleGenerativeAI({ apiKey })(model)
-
+async function generateExtractionJson(
+  _apiKey: string,
+  session: UnifiedSession,
+  options?: ExtractFactsOptions,
+  parseAttempt = 0
+): Promise<string> {
+  const model = resolveExtractionModel(options)
+  const prompt = buildFactExtractionPrompt(session)
+  const retryInstruction =
+    parseAttempt > 0
+      ? "\n\nThe previous response was incomplete or malformed. Return the complete extraction as one valid JSON array. Do not truncate the response or wrap it in commentary."
+      : ""
   let lastErr: unknown
+
   for (let attempt = 0; attempt < EXTRACTION_MAX_RETRIES; attempt++) {
     try {
-      if (!isOpenAI) {
-        await waitForGeminiQuota()
-      }
-      const { text } = await generateText({
-        model: modelInstance,
-        prompt,
-        maxTokens: 4000,
-        temperature: 0,
-      } as Parameters<typeof generateText>[0])
-      return text
+      return await generateExtractionAttempt(`${prompt}${retryInstruction}`, model)
     } catch (err) {
       lastErr = err
       const wait = EXTRACTION_BASE_DELAY_MS * 2 ** attempt
@@ -470,14 +417,42 @@ async function generateExtractionJson(
           attempt + 1
         }/${EXTRACTION_MAX_RETRIES} failed for ${session.sessionId}: ${err}. Retrying in ${wait}ms`
       )
-      await sleep(wait)
+      if (attempt < EXTRACTION_MAX_RETRIES - 1) {
+        await sleep(wait)
+      }
     }
   }
-  throw lastErr
+  throw lastErr ?? new Error(`Fact extraction failed for ${session.sessionId}`)
+}
+
+class ExtractionParseError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "ExtractionParseError"
+  }
+}
+
+function parseExtractionClaims(text: string, sessionId: string): ExtractedClaim[] {
+  const cleaned = text
+    .trim()
+    .replace(/^```json?\s*/i, "")
+    .replace(/```\s*$/, "")
+
+  try {
+    const claims = JSON.parse(cleaned) as ExtractedClaim[]
+    if (!Array.isArray(claims)) {
+      throw new Error("response was not a JSON array")
+    }
+    return claims
+  } catch (err) {
+    throw new ExtractionParseError(
+      `Fact extraction for ${sessionId} failed to parse JSON: ${String(err)}`
+    )
+  }
 }
 
 /**
- * Extracts structured facts from a conversation session using DeepSeek, Gemini, or OpenAI,
+ * Extracts structured facts from a conversation session using DeepSeek only,
  * then converts them to RDF Turtle triples.
  */
 export async function extractFactsToTurtle(
@@ -492,7 +467,7 @@ export async function extractFactsToTurtle(
   // Segments are sanitized for Windows: model tags like "qwen2.5-coder:7b"
   // contain ":", which is illegal in Windows dir names (see #48).
   const provider = resolveExtractionProvider(options)
-  const model = resolveExtractionModel(provider, options)
+  const model = resolveExtractionModel(options)
   const cacheFile = cacheDir
     ? join(cacheDir, sanitizePathSegment(provider), sanitizePathSegment(model), `${hash}.json`)
     : undefined
@@ -516,23 +491,33 @@ export async function extractFactsToTurtle(
     }
   }
 
-  const text = await generateExtractionJson(apiKey, session, options)
+  let text = ""
+  let claims: ExtractedClaim[] | undefined
+  let lastParseError: ExtractionParseError | undefined
 
-  let claims: ExtractedClaim[]
-  try {
-    const cleaned = text
-      .trim()
-      .replace(/^```json?\s*/i, "")
-      .replace(/```\s*$/, "")
-    claims = JSON.parse(cleaned) as ExtractedClaim[]
-    if (!Array.isArray(claims)) {
-      throw new Error(`Fact extraction for ${session.sessionId} did not return a JSON array`)
+  for (let attempt = 0; attempt < EXTRACTION_PARSE_RETRIES; attempt++) {
+    try {
+      text = await generateExtractionJson(apiKey, session, options, attempt)
+      claims = parseExtractionClaims(text, session.sessionId)
+      break
+    } catch (err) {
+      if (!(err instanceof ExtractionParseError)) throw err
+      lastParseError = err
+      const retryNumber = attempt + 1
+      if (retryNumber < EXTRACTION_PARSE_RETRIES) {
+        logger.warn(
+          `${err.message}; retrying extraction parse ${retryNumber}/${EXTRACTION_PARSE_RETRIES - 1}`
+        )
+      }
     }
-  } catch (err) {
-    const message = `Fact extraction for ${session.sessionId} failed to parse JSON: ${String(err)}`
-    logger.error(message)
+  }
+
+  if (!claims) {
+    const error =
+      lastParseError ?? new Error(`Fact extraction for ${session.sessionId} returned no claims`)
+    logger.error(error.message)
     logger.debug(`Raw extraction response: ${text.slice(0, 500)}`)
-    throw new Error(message)
+    throw error
   }
 
   // The domain extraction prompt emits "domainClass" (the generic MEMORY

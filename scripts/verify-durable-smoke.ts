@@ -14,7 +14,7 @@ import { createWorldsAgentTools } from "../src/providers/worlds/agent-tools"
 // records that searchWorld needs the local embedding model.
 //
 // Run after downloading the TF.js USE model:
-//   DEEPSEEK_API_KEY=test-key EXTRACTION_PROVIDER=none GEMINI_API_KEY=dummy \
+//   DEEPSEEK_API_KEY=test-key EXTRACTION_PROVIDER=none \
 //     bun run scripts/verify-durable-smoke.ts
 
 const CONTAINER = "agent-tools-smoke-durable"
@@ -35,7 +35,7 @@ console.log("Tools package: MemoryBench local Worlds tool surface")
 console.log("Container:", CONTAINER)
 
 const provider = new WorldsProvider()
-await provider.initialize({ apiKey: process.env.GEMINI_API_KEY ?? "" })
+await provider.initialize({ apiKey: process.env.DEEPSEEK_API_KEY ?? "" })
 await provider.clear(CONTAINER)
 
 const ingestStart = performance.now()

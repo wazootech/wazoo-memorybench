@@ -12,7 +12,6 @@
  *   DEEPSEEK_API_KEY=sk-... bun run scripts/smoke-extraction.ts
  *
  * Flags:
- *   --provider <deepseek|openai|gemini>  (default deepseek)
  *   --cache-dir <path>     (default data/cache/extraction-smoke)
  *   --warm                  run the cached pass too (always-on by default)
  *   --bench <n>             run n TRUE-COLD passes (fresh cache dir per pass,
@@ -44,7 +43,7 @@ function arg(name: string): string | undefined {
   return i >= 0 ? process.argv[i + 1] : undefined
 }
 
-const provider = (arg("provider") as "deepseek" | undefined) || "deepseek"
+const provider = "deepseek" as const
 const cacheDir = arg("cache-dir") || DEFAULT_CACHE_DIR
 
 // --bench <n>: variance benchmark across n true-cold passes.
@@ -109,7 +108,7 @@ async function runPass(label: string, passCacheDir: string): Promise<PassStats> 
   const t0 = performance.now()
   const turtle = await extractFactsToTurtle(key, session, {
     cacheDir: passCacheDir,
-    provider: provider as "deepseek",
+    provider,
   })
   const ms = performance.now() - t0
 
@@ -134,7 +133,16 @@ async function runPass(label: string, passCacheDir: string): Promise<PassStats> 
     }
   }
 
-  return { label, ms, turtleChars: turtle.length, quadCount, claimCount, shaclValid, shaclErrors, entities }
+  return {
+    label,
+    ms,
+    turtleChars: turtle.length,
+    quadCount,
+    claimCount,
+    shaclValid,
+    shaclErrors,
+    entities,
+  }
 }
 
 function printPassLine(s: PassStats): void {
@@ -197,13 +205,15 @@ if (benchRuns >= 2) {
   }
   console.log(
     `BENCH PASS — variance quantified across ${benchRuns} cold passes` +
-      (claims.every((c) => c === claims[0]) ? " (stable claim counts)" : " (claim counts vary — pin caches or average for benchmarks)")
+      (claims.every((c) => c === claims[0])
+        ? " (stable claim counts)"
+        : " (claim counts vary — pin caches or average for benchmarks)")
   )
   process.exit(0)
 }
 
 // ---- Default single-pass smoke ----
-const opts = { cacheDir, provider: provider as "deepseek" }
+const opts = { cacheDir, provider }
 
 // ---- Cold pass: real API call ----
 const t0 = performance.now()

@@ -46,7 +46,7 @@ const session = JSON.parse(await readFile(FIXTURE, "utf-8")) as {
 
 // ---- 1. Provider + ingest (extraction is a cache hit on repeat runs) ----
 const provider = new WorldsProvider()
-await provider.initialize({ apiKey: process.env.GEMINI_API_KEY ?? "" })
+await provider.initialize({ apiKey: process.env.DEEPSEEK_API_KEY ?? "" })
 await provider.clear(CONTAINER)
 
 const ingestStart = performance.now()
@@ -95,8 +95,7 @@ console.log(
 
 const schemaDiscoveryRes = (await tools.executeSparql.execute!(
   {
-    query:
-      "SELECT ?type ?predicate WHERE { ?subject a ?type ; ?predicate ?object } LIMIT 20",
+    query: "SELECT ?type ?predicate WHERE { ?subject a ?type ; ?predicate ?object } LIMIT 20",
   },
   toolOptions
 )) as {

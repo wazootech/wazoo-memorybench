@@ -16,6 +16,7 @@ import { logger } from "../../utils/logger"
 import { WORLDS_PROMPTS } from "./prompts"
 import { PROV, RDF, SCHEMA, TURTLE_PREFIXES, WORLDS, XSD } from "./ontology"
 import { SESSION_MESSAGE_SHACL_SHAPE, validateGraph, validateShaclGraph } from "./shapes"
+import { dedupeRankedByContent } from "./search-contract"
 import { CachedEmbeddingService } from "./cached-embedding-service"
 import {
   TFJS_USE_EMBEDDING_DIMENSIONS,
@@ -112,15 +113,16 @@ export class WorldsProvider implements Provider {
       // under containerTag, so it survives fresh run IDs. extraction.ts
       // appends provider/model to the path for model-qualified keys.
       const cacheDir = join(process.cwd(), "data", "cache", "extraction")
-      if (process.env.EXTRACTION_PROVIDER !== "none") {
-        const extractionProvider =
-          (process.env.EXTRACTION_PROVIDER as "deepseek" | "gemini" | "openai") || "deepseek"
+      const extractionProvider = process.env.EXTRACTION_PROVIDER
+      if (extractionProvider && !["deepseek", "none"].includes(extractionProvider)) {
+        throw new Error(
+          `Unsupported EXTRACTION_PROVIDER=${extractionProvider}; use deepseek or none`
+        )
+      }
+      if (extractionProvider !== "none") {
         // Extraction failures are fatal: continuing with only raw messages
         // would silently turn a graph benchmark into a raw-retrieval run.
-        factsTurtle = await extractFactsToTurtle(this.apiKey, session, {
-          cacheDir,
-          provider: extractionProvider,
-        })
+        factsTurtle = await extractFactsToTurtle(this.apiKey, session, { cacheDir })
       }
 
       // Validate everything before importing either graph so a failed session
@@ -240,7 +242,9 @@ export class WorldsProvider implements Provider {
     const client = await this.getClient(options.containerTag)
 
     const [searchResults, factClaimsRaw] = await Promise.all([
-      searchWithFallback(client, query).then((r) => enrichSearchResults(client, r)),
+      searchWithFallback(client, query)
+        .then((r) => enrichSearchResults(client, r))
+        .then((r) => dedupeRankedByContent(r)),
       queryFactClaims(client, query),
     ])
 
