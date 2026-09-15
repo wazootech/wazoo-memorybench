@@ -12,7 +12,7 @@
         "@getzep/zep-cloud": "^3.13.0",
         "@types/n3": "^1.26.1",
         "@worlds/sdk": "npm:@jsr/worlds__sdk@^0.9.0",
-        "@worlds/sqlite": "npm:@jsr/worlds__sqlite@^0.7.0",
+        "@worlds/sqlite": "npm:@jsr/worlds__sqlite@^0.7.1",
         "ai": "^7.0.93",
         "drizzle-orm": "^0.45.1",
         "js-tiktoken": "^1.0.21",
@@ -223,7 +223,7 @@
 
     "@worlds/sdk": ["@jsr/worlds__sdk@0.9.0", "https://npm.jsr.io/~/11/@jsr/worlds__sdk/0.9.0.tgz", { "dependencies": { "@jsr/std__encoding": "^1.0.10", "@jsr/std__path": "^1.1.5", "@jsr/wazoo__sparql-engine": "^0.4.1", "@jsr/worlds__client": "^0.1.0", "@rdfjs/types": "^2.0.1", "@tensorflow/tfjs": "^4.22.0", "@tensorflow/tfjs-backend-wasm": "^4.22.0", "ai": "^6.0.195" } }, "sha512-ucZYmVJ7st4f8ldlphEwmLlta6Z4OA2TONgGOdvMrQcc55sUxC7i93PVQn9BU6WO+mIlYrKQNkRKekhcuRzDiw=="],
 
-    "@worlds/sqlite": ["@jsr/worlds__sqlite@0.7.0", "https://npm.jsr.io/~/11/@jsr/worlds__sqlite/0.7.0.tgz", { "dependencies": { "@jsr/wazoo__sparql-engine": "^0.4.1", "@jsr/worlds__sdk": "^0.6.1", "@langchain/textsplitters": "^1.0.1", "@rdfjs/types": "^2.0.1", "sqlite-vec": "^0.1.9" } }, "sha512-eF7a03t4Etavm1n3y444FO7CL0nvcW/E2HjM0oNcqB9P3IafVLNPpl7dj8HyJM73bHWxWfB+3lrBJ6nXg/Nhiw=="],
+    "@worlds/sqlite": ["@jsr/worlds__sqlite@0.7.1", "https://npm.jsr.io/~/11/@jsr/worlds__sqlite/0.7.1.tgz", { "dependencies": { "@jsr/wazoo__sparql-engine": "^0.4.2", "@jsr/worlds__sdk": "^0.6.1", "@langchain/textsplitters": "^1.0.1", "@rdfjs/types": "^2.0.1", "sqlite-vec": "^0.1.9" } }, "sha512-ApnZ/MyizNWXfQpeKuup6RxElVcGTFKWGvdxj4RcNdLo3cQkP30XtWdQWSpAGhb9COKFzJ6M6JZMG95pua0h2A=="],
 
     "@zazuko/prefixes": ["@zazuko/prefixes@2.6.1", "", {}, "sha512-fbOadP7twxt0ZYT9mgIC+xQMk6f3pYYLI5a/2UJ/mc/ygqb/NoVv2ryK3lTtoi74xwkdpUeDwIuFQSosowzUgg=="],
 
@@ -852,6 +852,8 @@
     "@tensorflow/tfjs-data/node-fetch": ["node-fetch@2.6.13", "", { "dependencies": { "whatwg-url": "^5.0.0" }, "peerDependencies": { "encoding": "^0.1.0" }, "optionalPeers": ["encoding"] }, "sha512-StxNAxh15zr77QvvkmveSQ8uCQ4+v5FkvNTj0OESmiHu+VRi/gXArXtkWMElOsOUNLtUEvI4yS+rdtOHZTwlQA=="],
 
     "@worlds/sdk/ai": ["ai@6.0.256", "", { "dependencies": { "@ai-sdk/gateway": "3.0.174", "@ai-sdk/provider": "3.0.15", "@ai-sdk/provider-utils": "4.0.46", "@opentelemetry/api": "^1.9.0" }, "peerDependencies": { "zod": "^3.25.76 || ^4.1.8" } }, "sha512-xYvQfvwFG1AsiLv8wSS1o1077q/494HxzI6SIw0G/5zIoirNyJUzFlh/BTZBqbHMa03Pt5EouIGAbGimldiDGg=="],
+
+    "@worlds/sqlite/@jsr/wazoo__sparql-engine": ["@jsr/wazoo__sparql-engine@0.4.2", "https://npm.jsr.io/~/11/@jsr/wazoo__sparql-engine/0.4.2.tgz", { "dependencies": { "@rdfjs/types": "^2.0.1" } }, "sha512-iDhR7TX88E2CvTBJOZeWQdCgsc2oo8a6DlpJtvBU+roKnycgKD12nGVkJr2BTV+oy/9g2ah6QTRJ7caL+TcAXg=="],
 
     "are-we-there-yet/readable-stream": ["readable-stream@3.6.2", "", { "dependencies": { "inherits": "^2.0.3", "string_decoder": "^1.1.1", "util-deprecate": "^1.0.1" } }, "sha512-9u/sniCrY3D5WdsERHzHE4G2YCXqoG5FTHUiCC4SIbr6XcLZBY05ya9EKjYek9O5xOAwjGq+1JdGBAS7Q9ScoA=="],
 

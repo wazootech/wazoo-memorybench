@@ -22,10 +22,10 @@ import { PROV, RDF, SCHEMA, SPARQL_PREFIXES, WORLDS } from "./ontology"
  * - `baseIri` resolution of relative IRIs and request cancellation
  *   plumbing (pre-aborted `signal` rejects).
  *
- * Two documented divergences surfaced by this suite (see the tests below):
- * ORDER BY over an aggregate alias does not reorder (W3C SPARQL 1.1 gap,
- * harmless for the harness's schema-discovery query; wazootech/sparql-engine
- * #201), and `timeoutMs` cannot preempt CPU-bound evaluation because the
+ * Two documented behaviors surfaced by this suite (see the tests below):
+ * ORDER BY over an aggregate alias reorders as of @worlds/sqlite 0.7.1
+ * (sparql-engine#203 closing #201 — asserted positively in the
+ * COUNT/GROUP BY test), and `timeoutMs` cannot preempt CPU-bound evaluation because the
  * timeout timer needs a macrotask tick while evaluation over the synchronous
  * SQLite store only yields microtasks (64s pathological join resolved past
  * timeoutMs=25; wazootech/sparql-engine#202).
@@ -225,11 +225,11 @@ describe("WazooSparqlEngine over durable SQLite (issue #25)", () => {
       if (n?.type !== "literal") throw new Error(`expected literal count, got ${n?.type}`)
       expect(n.datatype).toBe("http://www.w3.org/2001/XMLSchema#integer")
     }
-    // ORDER BY over the aggregate alias: on the 0.7.0 engine this does not
-    // reorder (wazootech/sparql-engine#201), so the row order here is
-    // officially unordered — the assertions above deliberately avoid
-    // depending on it. The positive descending-order assertion ships with
-    // the @worlds/sqlite bump carrying sparql-engine#203 (issue #62).
+    // ORDER BY over an aggregate alias reorders as of @worlds/sqlite 0.7.1
+    // (engine 0.4.2, wazootech/sparql-engine#203 closing #201): the
+    // schema-discovery query returns rows in descending count order.
+    const counts = [...byType.values()]
+    expect(counts).toEqual([...counts].sort((a, b) => b - a))
   })
 
   it("runs the multi-hop Event→Person join with OPTIONAL status/date", async () => {
