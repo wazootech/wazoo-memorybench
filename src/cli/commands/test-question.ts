@@ -3,7 +3,7 @@ import type { BenchmarkName } from "../../types/benchmark"
 import { CheckpointManager, orchestrator } from "../../orchestrator"
 import { getAvailableProviders } from "../../providers"
 import { getAvailableBenchmarks } from "../../benchmarks"
-import { listAvailableModels } from "../../utils/models"
+import { DEFAULT_ANSWERING_MODEL, listAvailableModels } from "../../utils/models"
 import { logger } from "../../utils/logger"
 
 const DEFAULT_JUDGE_MODEL = "deepseek-v4-flash"
@@ -57,7 +57,7 @@ export async function testQuestionCommand(args: string[]): Promise<void> {
     console.log("  -r, --run-id           Run identifier (must have completed ingest phase)")
     console.log("  -q, --question-id      Question ID to test")
     console.log(`  -j, --judge            Judge model (default: ${DEFAULT_JUDGE_MODEL})`)
-    console.log("  -m, --answering-model  Answering model (default: gpt-4o)")
+    console.log(`  -m, --answering-model  Answering model (default: ${DEFAULT_ANSWERING_MODEL})`)
     console.log("")
     console.log(`Available models: ${listAvailableModels().join(", ")}`)
     return

@@ -247,7 +247,10 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
   },
 }
 
-export const DEFAULT_ANSWERING_MODEL = "gpt-4o"
+// DeepSeek is the default workhorse for answer generation, matching the
+// WorldsProvider loadout (TFJS USE embeddings + DeepSeek extraction/judging).
+// Explicit -m overrides keep OpenAI/Anthropic/Google available for comparisons.
+export const DEFAULT_ANSWERING_MODEL = "deepseek-v4-flash"
 export const DEFAULT_JUDGE_MODELS: Record<string, string> = {
   openai: "gpt-4o",
   anthropic: "sonnet-4",
