@@ -225,14 +225,11 @@ describe("WazooSparqlEngine over durable SQLite (issue #25)", () => {
       if (n?.type !== "literal") throw new Error(`expected literal count, got ${n?.type}`)
       expect(n.datatype).toBe("http://www.w3.org/2001/XMLSchema#integer")
     }
-    // Known divergence (documented upstream in wazootech/sparql-engine#201):
-    // ORDER BY over an aggregate alias (DESC(?n)) does not reorder rows.
-    // Plain-variable and group-key ORDER BY do reorder (verified), and the
-    // rows/counts/LIMIT are all correct, so the harness's schema-discovery
-    // query degrades to unordered rather than wrong. Assert the gap so a
-    // future engine fix flips this to a positive ordering assertion.
-    const counts = [...byType.values()]
-    expect(counts).not.toEqual([...counts].sort((a, b) => b - a))
+    // ORDER BY over the aggregate alias: on the 0.7.0 engine this does not
+    // reorder (wazootech/sparql-engine#201), so the row order here is
+    // officially unordered — the assertions above deliberately avoid
+    // depending on it. The positive descending-order assertion ships with
+    // the @worlds/sqlite bump carrying sparql-engine#203 (issue #62).
   })
 
   it("runs the multi-hop Event→Person join with OPTIONAL status/date", async () => {
