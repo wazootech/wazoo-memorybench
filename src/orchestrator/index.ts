@@ -8,7 +8,7 @@ import { createBenchmark } from "../benchmarks"
 import { createJudge } from "../judges"
 import { CheckpointManager } from "./checkpoint"
 import { getJudgeConfig, getProviderConfig } from "../utils/config"
-import { resolveModel } from "../utils/models"
+import { DEFAULT_ANSWERING_MODEL, resolveModel } from "../utils/models"
 import { logger } from "../utils/logger"
 import { runIngestPhase } from "./phases/ingest"
 import { runIndexingPhase } from "./phases/indexing"
@@ -78,7 +78,7 @@ export class Orchestrator {
       benchmark: benchmarkName,
       judgeModel,
       runId,
-      answeringModel = "gpt-4o",
+      answeringModel = DEFAULT_ANSWERING_MODEL,
       limit,
       sampling,
       concurrency,
