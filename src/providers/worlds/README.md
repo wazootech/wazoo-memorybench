@@ -64,20 +64,20 @@ different provider/model or model directory.
 bun install
 cp .env.example .env.local   # add API keys
 
-# 1. Run LoCoMo benchmark (limited sample)
-bun run src/index.ts run -p worlds -b locomo -l 5 -r smoke-locomo-001 -j deepseek-v4-flash -m gpt-4o
+# 1. Run LoCoMo benchmark (limited sample) — defaults: DeepSeek judge + answers
+bun run src/index.ts run -p worlds -b locomo -l 5 -r smoke-locomo-001
 
 # 2. Run LongMemEval benchmark
-bun run src/index.ts run -p worlds -b longmemeval -l 5 -r smoke-lme-001 -j deepseek-v4-flash -m gpt-4o
+bun run src/index.ts run -p worlds -b longmemeval -l 5 -r smoke-lme-001
 
 # 3. Iterate on search/answer/evaluate — reuses ingested data and indexes
-bun run src/index.ts run -r smoke-lme-001 -f search -j deepseek-v4-flash -m gpt-4o
+bun run src/index.ts run -r smoke-lme-001 -f search
 ```
 
 Use `-f search` to skip ingest and indexing on subsequent runs. The file-backed
 SQLite databases persist under `data/providers/worlds/`, so only answer and
-judge calls are repeated. Change `-j` or `-m` between iterations to compare
-models against the same indexed data.
+judge calls are repeated. Pass `-j` or `-m` to compare models against the same
+indexed data (DeepSeek is the default for both).
 
 ## Design notes
 

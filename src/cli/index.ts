@@ -37,6 +37,7 @@ Examples:
   bun run src/index.ts run -p mem0 -b longmemeval -j gemini-2.5-flash -r run2 -m opus-4.5
   bun run src/index.ts run -p filesystem -b locomo -j gpt-4o -r run-fs
   bun run src/index.ts run -p rag -b locomo -j gpt-4o -r run-rag
+  bun run src/index.ts run -p worlds -b locomo -l 5 -r worlds1
   bun run src/index.ts compare -p supermemory,filesystem,rag -b locomo -j gpt-4o -r compare1
 
 Options:
@@ -80,8 +81,12 @@ Available providers for storing and retrieving memories:
                  Requires: OPENAI_API_KEY (for memory extraction via gpt-4o-mini + embeddings)
 
   worlds         Wazoo Worlds - Graph-backed neuro-symbolic memory store (@worlds/sdk)
-                 Stores RDF quads in LibSQL, hybrid vector/FTS5 search + SPARQL fact claims query.
-                 Requires: GOOGLE_API_KEY (for Gemini embeddings & claims extraction)
+                 Stores RDF quads in a file-backed SQLite graph; hybrid TFJS USE vector /
+                 FTS5 search plus a SPARQL fact-claims query. Embeddings are local TFJS
+                 USE (512-dim) — cache the model once with: bun run models:tfjs-use.
+                 Requires: DEEPSEEK_API_KEY (fact extraction + default judge/answering).
+                 GOOGLE_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY are only needed to
+                 override the judge or answering model for comparative benchmarks.
 
 Usage:
   -p supermemory    Use Supermemory as the memory provider

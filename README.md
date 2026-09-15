@@ -32,7 +32,7 @@ A pluggable benchmarking framework for evaluating memory and context systems.
 ```
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │  Benchmarks │    │  Providers  │    │   Judges    │
-│  (LoCoMo,   │    │ (Supermem,  │    │  (GPT-4o,   │
+│  (LoCoMo,   │    │ (Supermem,  │    │  (DeepSeek, │
 │  LongMem..) │    │  Mem0, Zep) │    │  Claude..)  │
 └──────┬──────┘    └──────┬──────┘    └──────┬──────┘
        └──────────────────┼──────────────────┘
@@ -62,11 +62,15 @@ SUPERMEMORY_API_KEY=
 MEM0_API_KEY=
 ZEP_API_KEY=
 
-# Judges (at least one)
-OPENAI_API_KEY=
-ANTHROPIC_API_KEY=
-GOOGLE_API_KEY=
+# Judge / answering models
+DEEPSEEK_API_KEY=       # default judge + answering (and worlds fact extraction)
+OPENAI_API_KEY=         # optional — only for -j/-m overrides
+ANTHROPIC_API_KEY=      # optional — only for -j/-m overrides
+GOOGLE_API_KEY=         # optional — only for -j/-m overrides
 # GOOGLE_GENERATIVE_AI_API_KEY=  # also supported
+
+# Worlds provider: embeddings are local TFJS USE — no API key.
+# Cache the model once: bun run models:tfjs-use
 ```
 
 ## Commands
@@ -87,11 +91,11 @@ GOOGLE_API_KEY=
 ## Options
 
 ```
--p, --provider         Memory provider (supermemory, mem0, zep)
+-p, --provider         Memory provider (supermemory, mem0, zep, worlds)
 -b, --benchmark        Benchmark (locomo, longmemeval, convomem)
--j, --judge            Judge model (gpt-4o, sonnet-4, gemini-2.5-flash, etc.)
+-j, --judge            Judge model (default: deepseek-v4-flash; gpt-4o, sonnet-4, etc.)
 -r, --run-id           Run identifier (auto-generated if omitted)
--m, --answering-model  Model for answer generation (default: gpt-4o)
+-m, --answering-model  Model for answer generation (default: deepseek-v4-flash)
 -l, --limit            Limit number of questions
 -q, --question-id      Specific question (for test command)
 --force                Clear checkpoint and restart
