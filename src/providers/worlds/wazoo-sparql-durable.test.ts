@@ -24,10 +24,11 @@ import { PROV, RDF, SCHEMA, SPARQL_PREFIXES, WORLDS } from "./ontology"
  *
  * Two documented divergences surfaced by this suite (see the tests below):
  * ORDER BY over an aggregate alias does not reorder (W3C SPARQL 1.1 gap,
- * harmless for the harness's schema-discovery query), and `timeoutMs`
- * cannot preempt CPU-bound evaluation because the timeout timer needs a
- * macrotask tick while evaluation over the synchronous SQLite store only
- * yields microtasks (64s pathological join resolved past timeoutMs=25).
+ * harmless for the harness's schema-discovery query; wazootech/sparql-engine
+ * #201), and `timeoutMs` cannot preempt CPU-bound evaluation because the
+ * timeout timer needs a macrotask tick while evaluation over the synchronous
+ * SQLite store only yields microtasks (64s pathological join resolved past
+ * timeoutMs=25; wazootech/sparql-engine#202).
  *
  * Search is disabled and no embedding service is configured: this suite
  * proves the SPARQL surface, not the FTS/vector stack.
@@ -224,7 +225,7 @@ describe("WazooSparqlEngine over durable SQLite (issue #25)", () => {
       if (n?.type !== "literal") throw new Error(`expected literal count, got ${n?.type}`)
       expect(n.datatype).toBe("http://www.w3.org/2001/XMLSchema#integer")
     }
-    // Known divergence (documented upstream in wazootech/sparql-engine):
+    // Known divergence (documented upstream in wazootech/sparql-engine#201):
     // ORDER BY over an aggregate alias (DESC(?n)) does not reorder rows.
     // Plain-variable and group-key ORDER BY do reorder (verified), and the
     // rows/counts/LIMIT are all correct, so the harness's schema-discovery
@@ -300,7 +301,7 @@ describe("WazooSparqlEngine over durable SQLite (issue #25)", () => {
     // rejecting. The harness's real queries all terminate in <100ms so
     // this cannot hang a run, but a runaway agent-authored join is bounded
     // only by query complexity, not the timeout. Tracked upstream in
-    // wazootech/sparql-engine; assert only that timeoutMs is accepted
+    // wazootech/sparql-engine#202; assert only that timeoutMs is accepted
     // without breaking a fast query.
     const response = await client.sparql({
       query: `SELECT ?name WHERE { ?s <${SCHEMA.name}> ?name } LIMIT 1`,
