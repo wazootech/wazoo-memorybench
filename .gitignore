@@ -7,6 +7,7 @@
 
 .env
 .env.local
+.env.smoke
 
 # UI
 ui/node_modules/
